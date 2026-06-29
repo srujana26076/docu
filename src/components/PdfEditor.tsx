@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Save, Download, Trash2, Plus, ChevronLeft, ChevronRight, Type, X,
+  Save, Download, Trash2, Plus, ChevronLeft, ChevronRight, Type, X, Bold, Italic,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
@@ -33,10 +33,50 @@ interface Overlay {
   fontSize: number;
   color: string; // hex
   whiteBg: boolean;
+  fontFamily: string;
+  bold: boolean;
+  italic: boolean;
 }
 
 const RENDER_SCALE = 1.5;
 const PREVIEW_SCALE = 0.7;
+
+const FONT_FAMILIES = [
+  "Inter",
+  "Arial",
+  "Helvetica",
+  "Times New Roman",
+  "Georgia",
+  "Courier New",
+  "Trebuchet MS",
+  "Verdana",
+  "Tahoma",
+  "Playfair Display",
+  "Roboto",
+  "Open Sans",
+] as const;
+
+const FONT_SIZE_PRESETS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72, 96];
+
+function pdfFontFor(family: string, bold: boolean, italic: boolean) {
+  const f = family.toLowerCase();
+  if (f.includes("times") || f.includes("georgia") || f.includes("playfair")) {
+    if (bold && italic) return StandardFonts.TimesRomanBoldItalic;
+    if (bold) return StandardFonts.TimesRomanBold;
+    if (italic) return StandardFonts.TimesRomanItalic;
+    return StandardFonts.TimesRoman;
+  }
+  if (f.includes("courier")) {
+    if (bold && italic) return StandardFonts.CourierBoldOblique;
+    if (bold) return StandardFonts.CourierBold;
+    if (italic) return StandardFonts.CourierOblique;
+    return StandardFonts.Courier;
+  }
+  if (bold && italic) return StandardFonts.HelveticaBoldOblique;
+  if (bold) return StandardFonts.HelveticaBold;
+  if (italic) return StandardFonts.HelveticaOblique;
+  return StandardFonts.Helvetica;
+}
 
 function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
@@ -137,6 +177,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       fontSize: 12,
       color: "#111111",
       whiteBg: true,
+      fontFamily: "Inter",
+      bold: false,
+      italic: false,
     };
     setOverlays((arr) => [...arr, o]);
     setSelectedId(o.id);
@@ -167,13 +210,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   async function bakePdf(): Promise<Uint8Array> {
     if (!bytes) throw new Error("PDF not loaded");
     const out = await PDFDocument.load(bytes.slice(0));
-    const font = await out.embedFont(StandardFonts.Helvetica);
+    const fontCache = new Map<string, any>();
+    async function getFont(family: string, bold: boolean, italic: boolean) {
+      const std = pdfFontFor(family, bold, italic);
+      if (!fontCache.has(std)) fontCache.set(std, await out.embedFont(std));
+      return fontCache.get(std);
+    }
     const pages = out.getPages();
     for (const o of overlays) {
       const p = pages[o.page - 1];
       if (!p) continue;
       const pageHeight = p.getHeight();
       const c = hexToRgb(o.color);
+      const font = await getFont(o.fontFamily ?? "Inter", !!o.bold, !!o.italic);
       const textWidth = font.widthOfTextAtSize(o.text, o.fontSize);
       const yBaseline = pageHeight - o.y - o.fontSize;
       if (o.whiteBg) {
@@ -305,9 +354,39 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             <div className="border-t border-border bg-card px-4 py-3 flex items-center gap-3 flex-wrap text-sm">
               <Type className="h-4 w-4 text-muted-foreground" />
               <Input className="w-64" value={selected.text} onChange={(e) => updateOverlay(selected.id, { text: e.target.value })} />
+              <Button type="button" size="sm" variant={selected.bold ? "default" : "outline"}
+                onClick={() => updateOverlay(selected.id, { bold: !selected.bold })} aria-label="Bold">
+                <Bold className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" size="sm" variant={selected.italic ? "default" : "outline"}
+                onClick={() => updateOverlay(selected.id, { italic: !selected.italic })} aria-label="Italic">
+                <Italic className="h-3.5 w-3.5" />
+              </Button>
+              <label className="flex items-center gap-1.5">Font
+                <select
+                  value={selected.fontFamily}
+                  onChange={(e) => updateOverlay(selected.id, { fontFamily: e.target.value })}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  style={{ fontFamily: selected.fontFamily }}
+                >
+                  {FONT_FAMILIES.map((f) => (
+                    <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-1.5">Size
                 <Input type="number" min={6} max={96} className="w-20" value={selected.fontSize}
-                  onChange={(e) => updateOverlay(selected.id, { fontSize: Number(e.target.value) || 12 })} />
+                  onChange={(e) => updateOverlay(selected.id, { fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 12)) })} />
+                <select
+                  value={FONT_SIZE_PRESETS.includes(selected.fontSize) ? String(selected.fontSize) : ""}
+                  onChange={(e) => updateOverlay(selected.id, { fontSize: Number(e.target.value) })}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="" disabled>Preset</option>
+                  {FONT_SIZE_PRESETS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </label>
               <label className="flex items-center gap-1.5">Color
                 <input type="color" value={selected.color} onChange={(e) => updateOverlay(selected.id, { color: e.target.value })}
@@ -349,7 +428,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                       background: o.whiteBg ? "white" : "transparent",
                       padding: o.whiteBg ? "0 2px" : 0,
                       lineHeight: 1.1,
-                      fontFamily: "Helvetica, Arial, sans-serif",
+                      fontFamily: `${o.fontFamily ?? "Inter"}, Helvetica, Arial, sans-serif`,
+                      fontWeight: o.bold ? 700 : 400,
+                      fontStyle: o.italic ? "italic" : "normal",
                       whiteSpace: "pre",
                     }}>
                     {o.text}
@@ -387,7 +468,9 @@ function OverlayBox({
         background: o.whiteBg ? "white" : "transparent",
         padding: o.whiteBg ? "0 2px" : 0,
         lineHeight: 1.1,
-        fontFamily: "Helvetica, Arial, sans-serif",
+        fontFamily: `${o.fontFamily ?? "Inter"}, Helvetica, Arial, sans-serif`,
+        fontWeight: o.bold ? 700 : 400,
+        fontStyle: o.italic ? "italic" : "normal",
         whiteSpace: "pre",
         cursor: editing ? "text" : "move",
         outline: selected ? "1.5px dashed var(--ring)" : "1px dashed rgba(0,0,0,0.15)",
