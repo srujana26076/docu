@@ -9,8 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UploadRouteImport } from './routes/upload'
+import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as RecentRouteImport } from './routes/recent'
+import { Route as QuotationsRouteImport } from './routes/quotations'
+import { Route as OfferLettersRouteImport } from './routes/offer-letters'
+import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UploadRoute = UploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecentRoute = RecentRouteImport.update({
+  id: '/recent',
+  path: '/recent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuotationsRoute = QuotationsRouteImport.update({
+  id: '/quotations',
+  path: '/quotations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfferLettersRoute = OfferLettersRouteImport.update({
+  id: '/offer-letters',
+  path: '/offer-letters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoicesRoute = InvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +55,116 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/invoices': typeof InvoicesRoute
+  '/offer-letters': typeof OfferLettersRoute
+  '/quotations': typeof QuotationsRoute
+  '/recent': typeof RecentRoute
+  '/templates': typeof TemplatesRoute
+  '/upload': typeof UploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/invoices': typeof InvoicesRoute
+  '/offer-letters': typeof OfferLettersRoute
+  '/quotations': typeof QuotationsRoute
+  '/recent': typeof RecentRoute
+  '/templates': typeof TemplatesRoute
+  '/upload': typeof UploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/invoices': typeof InvoicesRoute
+  '/offer-letters': typeof OfferLettersRoute
+  '/quotations': typeof QuotationsRoute
+  '/recent': typeof RecentRoute
+  '/templates': typeof TemplatesRoute
+  '/upload': typeof UploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/invoices'
+    | '/offer-letters'
+    | '/quotations'
+    | '/recent'
+    | '/templates'
+    | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/invoices'
+    | '/offer-letters'
+    | '/quotations'
+    | '/recent'
+    | '/templates'
+    | '/upload'
+  id:
+    | '__root__'
+    | '/'
+    | '/invoices'
+    | '/offer-letters'
+    | '/quotations'
+    | '/recent'
+    | '/templates'
+    | '/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  InvoicesRoute: typeof InvoicesRoute
+  OfferLettersRoute: typeof OfferLettersRoute
+  QuotationsRoute: typeof QuotationsRoute
+  RecentRoute: typeof RecentRoute
+  TemplatesRoute: typeof TemplatesRoute
+  UploadRoute: typeof UploadRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/upload': {
+      id: '/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof UploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recent': {
+      id: '/recent'
+      path: '/recent'
+      fullPath: '/recent'
+      preLoaderRoute: typeof RecentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quotations': {
+      id: '/quotations'
+      path: '/quotations'
+      fullPath: '/quotations'
+      preLoaderRoute: typeof QuotationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offer-letters': {
+      id: '/offer-letters'
+      path: '/offer-letters'
+      fullPath: '/offer-letters'
+      preLoaderRoute: typeof OfferLettersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invoices': {
+      id: '/invoices'
+      path: '/invoices'
+      fullPath: '/invoices'
+      preLoaderRoute: typeof InvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +177,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  InvoicesRoute: InvoicesRoute,
+  OfferLettersRoute: OfferLettersRoute,
+  QuotationsRoute: QuotationsRoute,
+  RecentRoute: RecentRoute,
+  TemplatesRoute: TemplatesRoute,
+  UploadRoute: UploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
