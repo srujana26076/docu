@@ -354,9 +354,39 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             <div className="border-t border-border bg-card px-4 py-3 flex items-center gap-3 flex-wrap text-sm">
               <Type className="h-4 w-4 text-muted-foreground" />
               <Input className="w-64" value={selected.text} onChange={(e) => updateOverlay(selected.id, { text: e.target.value })} />
+              <Button type="button" size="sm" variant={selected.bold ? "default" : "outline"}
+                onClick={() => updateOverlay(selected.id, { bold: !selected.bold })} aria-label="Bold">
+                <Bold className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" size="sm" variant={selected.italic ? "default" : "outline"}
+                onClick={() => updateOverlay(selected.id, { italic: !selected.italic })} aria-label="Italic">
+                <Italic className="h-3.5 w-3.5" />
+              </Button>
+              <label className="flex items-center gap-1.5">Font
+                <select
+                  value={selected.fontFamily}
+                  onChange={(e) => updateOverlay(selected.id, { fontFamily: e.target.value })}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  style={{ fontFamily: selected.fontFamily }}
+                >
+                  {FONT_FAMILIES.map((f) => (
+                    <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-1.5">Size
                 <Input type="number" min={6} max={96} className="w-20" value={selected.fontSize}
-                  onChange={(e) => updateOverlay(selected.id, { fontSize: Number(e.target.value) || 12 })} />
+                  onChange={(e) => updateOverlay(selected.id, { fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 12)) })} />
+                <select
+                  value={FONT_SIZE_PRESETS.includes(selected.fontSize) ? String(selected.fontSize) : ""}
+                  onChange={(e) => updateOverlay(selected.id, { fontSize: Number(e.target.value) })}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="" disabled>Preset</option>
+                  {FONT_SIZE_PRESETS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </label>
               <label className="flex items-center gap-1.5">Color
                 <input type="color" value={selected.color} onChange={(e) => updateOverlay(selected.id, { color: e.target.value })}
@@ -398,7 +428,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                       background: o.whiteBg ? "white" : "transparent",
                       padding: o.whiteBg ? "0 2px" : 0,
                       lineHeight: 1.1,
-                      fontFamily: "Helvetica, Arial, sans-serif",
+                      fontFamily: `${o.fontFamily ?? "Inter"}, Helvetica, Arial, sans-serif`,
+                      fontWeight: o.bold ? 700 : 400,
+                      fontStyle: o.italic ? "italic" : "normal",
                       whiteSpace: "pre",
                     }}>
                     {o.text}
