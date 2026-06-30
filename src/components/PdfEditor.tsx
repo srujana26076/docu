@@ -174,7 +174,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [pdfDoc, zoom]);
+  }, [pdfDoc, zoom, pageSizes]);
 
   const pushHistory = useCallback(() => {
     setHistory((h) => [...h.slice(-49), fields]);
