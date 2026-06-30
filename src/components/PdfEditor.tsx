@@ -224,12 +224,15 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       if (!p) continue;
       const font = await getFont(f.fontFamily, f.bold, f.italic);
       const c = hexToRgb(f.color);
-      // Cover original text region
+      // Cover original glyph box (ascent + descent + side bleed)
+      const newW = font.widthOfTextAtSize(f.text, f.fontSize);
+      const coverW = Math.max(f.width, newW) + f.origFontSize * 0.4;
+      const coverH = f.origFontSize * 1.45;
       p.drawRectangle({
-        x: f.x - 1,
-        y: f.y - 2,
-        width: Math.max(f.width, font.widthOfTextAtSize(f.text, f.fontSize)) + 2,
-        height: f.origFontSize + 4,
+        x: f.x - f.origFontSize * 0.15,
+        y: f.y - f.origFontSize * 0.3,
+        width: coverW,
+        height: coverH,
         color: rgb(1, 1, 1),
       });
       p.drawText(f.text, {
@@ -470,31 +473,41 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                       {list.map((f) => {
                         const edited = f.text !== f.original;
                         if (!edited && f.id !== selectedId) return null;
-                        const top = (size.hPt - f.y - f.origFontSize) * pageScale;
-                        const left = f.x * pageScale;
-                        const baseWidth = Math.max(f.width, 4) * pageScale;
+                        // White mask covering the original glyph box
+                        const maskLeft = (f.x - f.origFontSize * 0.15) * pageScale;
+                        const maskTop = (size.hPt - f.y - f.origFontSize * 1.15) * pageScale;
+                        const maskW = (Math.max(f.width, 4) + f.origFontSize * 0.4) * pageScale;
+                        const maskH = f.origFontSize * 1.45 * pageScale;
+                        // New text drawn at the original baseline
+                        const textLeft = f.x * pageScale;
+                        const textTop = (size.hPt - f.y - f.origFontSize) * pageScale;
                         return (
                           <div key={f.id}
                             onMouseDown={(e) => { e.stopPropagation(); setSelectedId(f.id); }}
-                            style={{
+                            style={{ position: "absolute", inset: 0, cursor: "text" }}>
+                            {edited && (
+                              <div style={{
+                                position: "absolute",
+                                left: maskLeft, top: maskTop,
+                                width: maskW, height: maskH,
+                                background: "white",
+                              }} />
+                            )}
+                            <div style={{
                               position: "absolute",
-                              left, top,
-                              minWidth: baseWidth,
-                              height: (f.origFontSize + 4) * pageScale,
-                              background: edited ? "white" : "transparent",
+                              left: textLeft, top: textTop,
                               color: f.color,
                               fontFamily: `${f.fontFamily}, Helvetica, Arial, sans-serif`,
                               fontSize: f.fontSize * pageScale,
                               fontWeight: f.bold ? 700 : 400,
                               fontStyle: f.italic ? "italic" : "normal",
                               lineHeight: 1,
-                              padding: 0,
                               whiteSpace: "pre",
                               outline: f.id === selectedId ? "1.5px dashed hsl(var(--ring))" : "none",
                               outlineOffset: 1,
-                              cursor: "text",
                             }}>
-                            {edited ? f.text : ""}
+                              {edited ? f.text : ""}
+                            </div>
                           </div>
                         );
                       })}
