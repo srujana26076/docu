@@ -170,7 +170,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         canvas.width = vp.width;
         canvas.height = vp.height;
         const ctx = canvas.getContext("2d")!;
-        await p.render({ canvasContext: ctx, viewport: vp }).promise;
+        await p.render({ canvas, canvasContext: ctx, viewport: vp } as any).promise;
       }
     })();
     return () => { cancelled = true; };
