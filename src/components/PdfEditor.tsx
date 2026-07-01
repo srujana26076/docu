@@ -133,6 +133,20 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     })();
   }, [doc.folder, invoiceNumber]);
 
+  // Sync auto-injected Date / Invoice No. value fields with live values
+  useEffect(() => {
+    if (!fields.length) return;
+    setFields((arr) => {
+      let changed = false;
+      const next = arr.map((f) => {
+        if (f.autoKind === "date" && f.text !== invoiceDate) { changed = true; return { ...f, text: invoiceDate }; }
+        if (f.autoKind === "invoice" && invoiceNumber && f.text !== invoiceNumber) { changed = true; return { ...f, text: invoiceNumber }; }
+        return f;
+      });
+      return changed ? next : arr;
+    });
+  }, [invoiceDate, invoiceNumber, fields.length]);
+
   // Load PDF & extract text content per page as fields
   useEffect(() => {
     let cancelled = false;
