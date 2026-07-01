@@ -42,6 +42,7 @@ interface Field extends FieldStyle {
   y: number;
   width: number;      // original width in pdf points
   origFontSize: number;
+  autoKind?: "date" | "invoice";
 }
 
 const FONT_FAMILIES = [
@@ -55,6 +56,15 @@ const COLOR_SWATCHES = ["#0b1320", "#1e3a8a", "#dc2626", "#16a34a", "#f59e0b", "
 const DEFAULT_STYLE: FieldStyle = {
   fontFamily: "Arial", fontSize: 12, color: "#0b1320", bold: false, italic: false,
 };
+
+function formatToday(): string {
+  return new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+function formatInvoiceNumber(prefix: string, n: number): string {
+  const d = new Date();
+  const mmdd = String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+  return `${prefix}-${mmdd}-${String(n).padStart(4, "0")}`;
+}
 
 function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
@@ -101,6 +111,41 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   const previewWrapRef = useRef<HTMLDivElement>(null);
   const pageCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
+  const [invoiceNumber, setInvoiceNumber] = useState<string | null>(doc.invoice_number ?? null);
+  const [invoiceDate, setInvoiceDate] = useState<string>(doc.invoice_date ?? formatToday());
+  // Live-track today's date while editing
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = formatToday();
+      setInvoiceDate((prev) => (prev === t ? prev : t));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Peek next invoice number (without allocating) if this doc doesn't already have one
+  useEffect(() => {
+    if (doc.folder !== "invoice") return;
+    if (invoiceNumber) return;
+    (async () => {
+      const { data } = await supabase.from("invoice_counter").select("last_number, prefix").eq("id", 1).maybeSingle();
+      if (!data) return;
+      setInvoiceNumber(formatInvoiceNumber(data.prefix ?? "IVHPS", (data.last_number ?? 5032) + 1));
+    })();
+  }, [doc.folder, invoiceNumber]);
+
+  // Sync auto-injected Date / Invoice No. value fields with live values
+  useEffect(() => {
+    if (!fields.length) return;
+    setFields((arr) => {
+      let changed = false;
+      const next = arr.map((f) => {
+        if (f.autoKind === "date" && f.text !== invoiceDate) { changed = true; return { ...f, text: invoiceDate }; }
+        if (f.autoKind === "invoice" && invoiceNumber && f.text !== invoiceNumber) { changed = true; return { ...f, text: invoiceNumber }; }
+        return f;
+      });
+      return changed ? next : arr;
+    });
+  }, [invoiceDate, invoiceNumber, fields.length]);
 
   // Load PDF & extract text content per page as fields
   useEffect(() => {
@@ -162,6 +207,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 ...DEFAULT_STYLE,
                 fontSize: Math.round(fontSize),
                 bold: true,
+                autoKind: isDate ? "date" : "invoice",
               });
               idx++;
             }
@@ -232,6 +278,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   // Bake edited fields into PDF
   async function bakePdf(): Promise<Uint8Array> {
+    return bakeFrom(fields);
+  }
+  async function bakeFrom(list: Field[]): Promise<Uint8Array> {
     if (!bytes) throw new Error("PDF not loaded");
     const out = await PDFDocument.load(bytes.slice(0));
     const fontCache = new Map<string, any>();
@@ -241,7 +290,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       return fontCache.get(std);
     }
     const pages = out.getPages();
-    for (const f of fields) {
+    for (const f of list) {
       if (f.text === f.original) continue;
       const p = pages[f.page - 1];
       if (!p) continue;
@@ -280,7 +329,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const u8 = await bakePdf();
+      // Allocate a real invoice number on save (only for invoice folder, first save)
+      let finalInvoice = invoiceNumber;
+      let fieldsForBake = fields;
+      if (folder === "invoice" && !doc.invoice_number) {
+        const { data: allocated, error: allocErr } = await supabase.rpc("allocate_invoice_number");
+        if (!allocErr && allocated) {
+          finalInvoice = allocated as unknown as string;
+          setInvoiceNumber(finalInvoice);
+          fieldsForBake = fields.map((f) => f.autoKind === "invoice" ? { ...f, text: finalInvoice! } : f);
+          setFields(fieldsForBake);
+        }
+      }
+      const u8 = await bakeFrom(fieldsForBake);
       const safe = (name || "document").replace(/[^\w.\- ]+/g, "_").trim();
       const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}.pdf`;
       const blob = new Blob([u8 as any], { type: "application/pdf" });
@@ -289,6 +350,8 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const { error } = await supabase.from("documents").insert({
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
+        invoice_number: folder === "invoice" ? finalInvoice : null,
+        invoice_date: folder === "invoice" ? invoiceDate : null,
       });
       if (error) throw error;
       toast.success(`Saved to ${folderMeta[folder].title}`);
