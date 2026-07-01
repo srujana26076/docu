@@ -18,6 +18,8 @@ export interface DocRow {
   size_bytes: number | null;
   created_at: string;
   updated_at: string;
+  invoice_number?: string | null;
+  invoice_date?: string | null;
 }
 
 export async function listDocuments(folder?: Folder): Promise<DocRow[]> {
