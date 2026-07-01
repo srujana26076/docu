@@ -42,6 +42,7 @@ interface Field extends FieldStyle {
   y: number;
   width: number;      // original width in pdf points
   origFontSize: number;
+  autoKind?: "date" | "invoice";
 }
 
 const FONT_FAMILIES = [
@@ -192,6 +193,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 ...DEFAULT_STYLE,
                 fontSize: Math.round(fontSize),
                 bold: true,
+                autoKind: isDate ? "date" : "invoice",
               });
               idx++;
             }
