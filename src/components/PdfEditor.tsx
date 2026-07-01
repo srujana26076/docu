@@ -326,7 +326,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const u8 = await bakePdf();
+      // Allocate a real invoice number on save (only for invoice folder, first save)
+      let finalInvoice = invoiceNumber;
+      let fieldsForBake = fields;
+      if (folder === "invoice" && !doc.invoice_number) {
+        const { data: allocated, error: allocErr } = await supabase.rpc("allocate_invoice_number");
+        if (!allocErr && allocated) {
+          finalInvoice = allocated as unknown as string;
+          setInvoiceNumber(finalInvoice);
+          fieldsForBake = fields.map((f) => f.autoKind === "invoice" ? { ...f, text: finalInvoice! } : f);
+          setFields(fieldsForBake);
+        }
+      }
+      const u8 = await bakeFrom(fieldsForBake);
       const safe = (name || "document").replace(/[^\w.\- ]+/g, "_").trim();
       const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}.pdf`;
       const blob = new Blob([u8 as any], { type: "application/pdf" });
@@ -335,6 +347,8 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const { error } = await supabase.from("documents").insert({
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
+        invoice_number: folder === "invoice" ? finalInvoice : null,
+        invoice_date: folder === "invoice" ? invoiceDate : null,
       });
       if (error) throw error;
       toast.success(`Saved to ${folderMeta[folder].title}`);
