@@ -278,6 +278,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   // Bake edited fields into PDF
   async function bakePdf(): Promise<Uint8Array> {
+    return bakeFrom(fields);
+  }
+  async function bakeFrom(list: Field[]): Promise<Uint8Array> {
     if (!bytes) throw new Error("PDF not loaded");
     const out = await PDFDocument.load(bytes.slice(0));
     const fontCache = new Map<string, any>();
@@ -287,7 +290,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       return fontCache.get(std);
     }
     const pages = out.getPages();
-    for (const f of fields) {
+    for (const f of list) {
       if (f.text === f.original) continue;
       const p = pages[f.page - 1];
       if (!p) continue;
