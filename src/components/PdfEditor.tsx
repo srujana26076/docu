@@ -128,6 +128,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             if (!s.trim()) continue;
             const tr: number[] = itAny.transform;
             const fontSize = Math.hypot(tr[2], tr[3]) || itAny.height || 10;
+            const width = itAny.width ?? 0;
             collected.push({
               id: `${pn}-${idx}`,
               page: pn,
@@ -136,12 +137,34 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
               text: s,
               x: tr[4],
               y: tr[5],
-              width: itAny.width ?? 0,
+              width,
               origFontSize: fontSize,
               ...DEFAULT_STYLE,
               fontSize: Math.round(fontSize),
             });
             idx++;
+
+            // Auto-inject an editable value field right after "Date:" / "Invoice No.:" labels
+            const norm = s.trim().toLowerCase().replace(/\s+/g, " ");
+            const isDate = /^date\s*:?$/.test(norm);
+            const isInv = /^(invoice|inovice)\s*no\.?\s*:?$/.test(norm);
+            if (isDate || isInv) {
+              collected.push({
+                id: `${pn}-${idx}-val`,
+                page: pn,
+                index: idx + 1,
+                original: "",
+                text: "",
+                x: tr[4] + width + fontSize * 0.4,
+                y: tr[5],
+                width: 0,
+                origFontSize: fontSize,
+                ...DEFAULT_STYLE,
+                fontSize: Math.round(fontSize),
+                bold: true,
+              });
+              idx++;
+            }
           }
         }
         if (cancelled) return;
