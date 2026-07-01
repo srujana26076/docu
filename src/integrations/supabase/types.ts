@@ -19,6 +19,8 @@ export type Database = {
           created_at: string
           folder: Database["public"]["Enums"]["folder_type"]
           id: string
+          invoice_date: string | null
+          invoice_number: string | null
           is_default: boolean
           name: string
           size_bytes: number | null
@@ -29,6 +31,8 @@ export type Database = {
           created_at?: string
           folder: Database["public"]["Enums"]["folder_type"]
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
           is_default?: boolean
           name: string
           size_bytes?: number | null
@@ -39,6 +43,8 @@ export type Database = {
           created_at?: string
           folder?: Database["public"]["Enums"]["folder_type"]
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
           is_default?: boolean
           name?: string
           size_bytes?: number | null
@@ -47,12 +53,30 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_counter: {
+        Row: {
+          id: number
+          last_number: number
+          prefix: string
+        }
+        Insert: {
+          id?: number
+          last_number?: number
+          prefix?: string
+        }
+        Update: {
+          id?: number
+          last_number?: number
+          prefix?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      allocate_invoice_number: { Args: never; Returns: string }
     }
     Enums: {
       folder_type: "invoice" | "quotation" | "offer_letter" | "template"
