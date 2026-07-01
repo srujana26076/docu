@@ -56,6 +56,15 @@ const DEFAULT_STYLE: FieldStyle = {
   fontFamily: "Arial", fontSize: 12, color: "#0b1320", bold: false, italic: false,
 };
 
+function formatToday(): string {
+  return new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+function formatInvoiceNumber(prefix: string, n: number): string {
+  const d = new Date();
+  const mmdd = String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+  return `${prefix}-${mmdd}-${String(n).padStart(4, "0")}`;
+}
+
 function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
   const n = parseInt(m.length === 3 ? m.split("").map((c) => c + c).join("") : m, 16);
@@ -101,6 +110,27 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   const previewWrapRef = useRef<HTMLDivElement>(null);
   const pageCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
+  const [invoiceNumber, setInvoiceNumber] = useState<string | null>(doc.invoice_number ?? null);
+  const [invoiceDate, setInvoiceDate] = useState<string>(doc.invoice_date ?? formatToday());
+  // Live-track today's date while editing
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = formatToday();
+      setInvoiceDate((prev) => (prev === t ? prev : t));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Peek next invoice number (without allocating) if this doc doesn't already have one
+  useEffect(() => {
+    if (doc.folder !== "invoice") return;
+    if (invoiceNumber) return;
+    (async () => {
+      const { data } = await supabase.from("invoice_counter").select("last_number, prefix").eq("id", 1).maybeSingle();
+      if (!data) return;
+      setInvoiceNumber(formatInvoiceNumber(data.prefix ?? "IVHPS", (data.last_number ?? 5032) + 1));
+    })();
+  }, [doc.folder, invoiceNumber]);
 
   // Load PDF & extract text content per page as fields
   useEffect(() => {
