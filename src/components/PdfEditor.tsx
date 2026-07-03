@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Save, Download, Trash2, Bold, Italic, Type, Undo2, ZoomIn, ZoomOut, RotateCcw,
+  Save, Download, Trash2, Bold, Italic, Underline, Type, Undo2, ZoomIn, ZoomOut, RotateCcw,
+  Table as TableIcon, Plus, Minus, AlignLeft, AlignCenter, AlignRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
+import { TableOverlayView, TableGridPicker, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
 
 // ---- pdfjs lazy loader ----------------------------------------------------
 type PdfJsLib = typeof import("pdfjs-dist");
