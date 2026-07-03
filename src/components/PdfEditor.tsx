@@ -689,6 +689,69 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             </div>
           </div>
 
+          {/* Table toolbar */}
+          {selectedTable && (
+            <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center gap-2 flex-wrap text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <TableIcon className="h-4 w-4" /><span>Table</span>
+              </div>
+              <div className="h-5 w-px bg-border" />
+              <Button size="sm" variant="outline" onClick={() => addRow(false)}><Plus className="h-3 w-3 mr-1" />Row above</Button>
+              <Button size="sm" variant="outline" onClick={() => addRow(true)}><Plus className="h-3 w-3 mr-1" />Row below</Button>
+              <Button size="sm" variant="outline" onClick={delRow}><Minus className="h-3 w-3 mr-1" />Row</Button>
+              <div className="h-5 w-px bg-border" />
+              <Button size="sm" variant="outline" onClick={() => addCol(false)}><Plus className="h-3 w-3 mr-1" />Col left</Button>
+              <Button size="sm" variant="outline" onClick={() => addCol(true)}><Plus className="h-3 w-3 mr-1" />Col right</Button>
+              <Button size="sm" variant="outline" onClick={delCol}><Minus className="h-3 w-3 mr-1" />Col</Button>
+              <div className="h-5 w-px bg-border" />
+              {/* Cell-level formatting */}
+              <Button size="icon" variant={selCell?.bold ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ bold: !selCell?.bold })}><Bold className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.italic ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ italic: !selCell?.italic })}><Italic className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.underline ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ underline: !selCell?.underline })}><Underline className="h-3.5 w-3.5" /></Button>
+              <select disabled={!selCell} value={selCell?.fontFamily ?? "Arial"} onChange={(e) => patchCell({ fontFamily: e.target.value })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[130px]"
+                style={{ fontFamily: selCell?.fontFamily ?? "Arial" }}>
+                {FONT_FAMILIES.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+              </select>
+              <Input type="number" min={6} max={96} disabled={!selCell}
+                value={selCell?.fontSize ?? 11}
+                onChange={(e) => patchCell({ fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 11)) })}
+                className="h-8 w-16" />
+              <label className="flex items-center gap-1 text-xs">Text
+                <input type="color" disabled={!selCell} value={selCell?.color ?? "#0b1320"} onChange={(e) => patchCell({ color: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+              </label>
+              <label className="flex items-center gap-1 text-xs">Fill
+                <input type="color" disabled={!selCell} value={selCell?.bg ?? "#ffffff"} onChange={(e) => patchCell({ bg: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+              </label>
+              <Button size="icon" variant={selCell?.hAlign === "left" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "left" })}><AlignLeft className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.hAlign === "center" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "center" })}><AlignCenter className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.hAlign === "right" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "right" })}><AlignRight className="h-3.5 w-3.5" /></Button>
+              <select disabled={!selCell} value={selCell?.vAlign ?? "middle"} onChange={(e) => patchCell({ vAlign: e.target.value as any })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm">
+                <option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option>
+              </select>
+              <label className="flex items-center gap-1 text-xs">Pad
+                <Input type="number" min={0} max={40} disabled={!selCell} value={selCell?.padding ?? 4}
+                  onChange={(e) => patchCell({ padding: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })}
+                  className="h-8 w-14" />
+              </label>
+              <div className="h-5 w-px bg-border" />
+              <label className="flex items-center gap-1 text-xs">Border
+                <input type="color" value={selectedTable.borderColor} onChange={(e) => updateTable(selectedTable.id, { borderColor: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+                <Input type="number" min={0} max={8} step={0.5} value={selectedTable.borderWidth}
+                  onChange={(e) => updateTable(selectedTable.id, { borderWidth: Math.max(0, Math.min(8, Number(e.target.value) || 0)) })}
+                  className="h-8 w-14" />
+                <Button size="sm" variant={selectedTable.borderVisible ? "default" : "outline"}
+                  onClick={() => updateTable(selectedTable.id, { borderVisible: !selectedTable.borderVisible })}>
+                  {selectedTable.borderVisible ? "Show" : "Hide"}
+                </Button>
+              </label>
+              <Button size="sm" variant="destructive" onClick={deleteTable} className="ml-auto">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />Delete table
+              </Button>
+            </div>
+          )}
+
           {/* Preview */}
           <div ref={previewWrapRef} className="flex-1 overflow-auto bg-muted/30 p-6">
             <div className="flex flex-col items-center gap-6">
@@ -698,8 +761,11 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 const list = fieldsByPage.get(pn) ?? [];
                 const wPx = size.wPt * pageScale;
                 const hPx = size.hPt * pageScale;
+                const pageTables = tables.filter((t) => t.page === pn);
                 return (
-                  <div key={pn} className="relative shadow-lg bg-white" style={{ width: wPx, height: hPx }}>
+                  <div key={pn} className="relative shadow-lg bg-white"
+                    onMouseDown={() => { setSelectedTableId(null); setSelectedCell(null); }}
+                    style={{ width: wPx, height: hPx }}>
                     <canvas
                       ref={(el) => { pageCanvasRefs.current[pn] = el; }}
                       className="block"
@@ -749,6 +815,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                         );
                       })}
                     </div>
+                    {/* Table overlays */}
+                    {pageTables.map((t) => (
+                      <TableOverlayView
+                        key={t.id}
+                        table={t}
+                        scale={pageScale}
+                        selected={selectedTableId === t.id}
+                        selectedCell={selectedTableId === t.id ? selectedCell : null}
+                        onSelect={() => setSelectedTableId(t.id)}
+                        onSelectCell={(r, c) => setSelectedCell({ r, c })}
+                        onChange={(nt) => updateTable(t.id, nt)}
+                      />
+                    ))}
                   </div>
                 );
               })}
