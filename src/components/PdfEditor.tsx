@@ -115,6 +115,74 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   const pageCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(doc.invoice_number ?? null);
   const [invoiceDate, setInvoiceDate] = useState<string>(doc.invoice_date ?? formatToday());
+
+  // ---- Tables state ----
+  const [tables, setTables] = useState<TableData[]>(Array.isArray(doc.tables_json) ? doc.tables_json : []);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+  const updateTable = (id: string, patch: Partial<TableData> | ((t: TableData) => TableData)) => {
+    setTables((arr) => arr.map((t) => t.id === id ? (typeof patch === "function" ? patch(t) : { ...t, ...patch }) : t));
+  };
+  const patchCell = (patch: Partial<TableCell>) => {
+    if (!selectedTable || !selectedCell) return;
+    const cells = selectedTable.cells.map((row) => row.slice());
+    cells[selectedCell.r][selectedCell.c] = { ...cells[selectedCell.r][selectedCell.c], ...patch };
+    updateTable(selectedTable.id, { cells });
+  };
+  const selCell = selectedTable && selectedCell ? selectedTable.cells[selectedCell.r]?.[selectedCell.c] : null;
+
+  function insertTable(rows: number, cols: number) {
+    if (!pageSizes.length) return;
+    // insert on page 1 centered-ish
+    const t = makeTable(1, rows, cols, 60, 120);
+    setTables((arr) => [...arr, t]);
+    setSelectedTableId(t.id);
+    setSelectedCell({ r: 0, c: 0 });
+    toast.success(`Inserted ${rows}×${cols} table`);
+  }
+  function addRow(after = true) {
+    if (!selectedTable) return;
+    const idx = after ? (selectedCell?.r ?? selectedTable.cells.length - 1) + 1 : (selectedCell?.r ?? 0);
+    const cols = selectedTable.colWidths.length;
+    const newRow = Array.from({ length: cols }, defaultCell);
+    const cells = selectedTable.cells.slice(); cells.splice(idx, 0, newRow);
+    const rowHeights = selectedTable.rowHeights.slice(); rowHeights.splice(idx, 0, rowHeights[0] ?? 24);
+    updateTable(selectedTable.id, { cells, rowHeights });
+  }
+  function delRow() {
+    if (!selectedTable || selectedCell == null) return;
+    if (selectedTable.cells.length <= 1) return;
+    const idx = selectedCell.r;
+    const cells = selectedTable.cells.filter((_, i) => i !== idx);
+    const rowHeights = selectedTable.rowHeights.filter((_, i) => i !== idx);
+    updateTable(selectedTable.id, { cells, rowHeights });
+    setSelectedCell({ r: Math.max(0, idx - 1), c: selectedCell.c });
+  }
+  function addCol(after = true) {
+    if (!selectedTable) return;
+    const idx = after ? (selectedCell?.c ?? selectedTable.colWidths.length - 1) + 1 : (selectedCell?.c ?? 0);
+    const cells = selectedTable.cells.map((row) => { const r = row.slice(); r.splice(idx, 0, defaultCell()); return r; });
+    const colWidths = selectedTable.colWidths.slice(); colWidths.splice(idx, 0, colWidths[0] ?? 80);
+    updateTable(selectedTable.id, { cells, colWidths });
+  }
+  function delCol() {
+    if (!selectedTable || selectedCell == null) return;
+    if (selectedTable.colWidths.length <= 1) return;
+    const idx = selectedCell.c;
+    const cells = selectedTable.cells.map((row) => row.filter((_, i) => i !== idx));
+    const colWidths = selectedTable.colWidths.filter((_, i) => i !== idx);
+    updateTable(selectedTable.id, { cells, colWidths });
+    setSelectedCell({ r: selectedCell.r, c: Math.max(0, idx - 1) });
+  }
+  function deleteTable() {
+    if (!selectedTable) return;
+    if (!confirm("Delete this table?")) return;
+    setTables((arr) => arr.filter((t) => t.id !== selectedTable.id));
+    setSelectedTableId(null); setSelectedCell(null);
+  }
+
   // Live-track today's date while editing
   useEffect(() => {
     const id = setInterval(() => {
