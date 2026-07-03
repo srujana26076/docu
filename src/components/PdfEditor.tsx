@@ -489,6 +489,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         size_bytes: u8.byteLength, is_default: false,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
+        tables_json: tables as any,
       });
       if (error) throw error;
       toast.success(`Saved to ${folderMeta[folder].title}`);
