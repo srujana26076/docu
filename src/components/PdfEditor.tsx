@@ -543,18 +543,11 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             Insert ▾
           </Button>
           {insertOpen && (
-            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg min-w-[180px]">
-              <div className="relative group">
-                <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  onClick={(e) => e.currentTarget.parentElement?.classList.toggle("open")}
-                >
-                  <TableIcon className="h-4 w-4" /> Table
-                </button>
-                <div className="hidden group-[.open]:block group-hover:block absolute left-full top-0 ml-1">
-                  <TableGridPicker onPick={insertTable} onClose={() => setInsertOpen(false)} />
-                </div>
+            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg p-3">
+              <div className="flex items-center gap-2 px-1 pb-2 text-sm font-medium">
+                <TableIcon className="h-4 w-4" /> Table
               </div>
+              <TableGridPicker onPick={(r, c) => insertTable(r, c)} onClose={() => setInsertOpen(false)} />
             </div>
           )}
         </div>
