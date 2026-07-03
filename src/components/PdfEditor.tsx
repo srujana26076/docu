@@ -381,6 +381,73 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         x: f.x, y: f.y, size: f.fontSize, font, color: rgb(c.r, c.g, c.b),
       });
     }
+    // Draw tables
+    for (const t of tables) {
+      const p = pages[t.page - 1];
+      if (!p) continue;
+      const pageH = p.getHeight();
+      const totalW = t.colWidths.reduce((a, b) => a + b, 0);
+      const totalH = t.rowHeights.reduce((a, b) => a + b, 0);
+      const bc = hexToRgb(t.borderColor);
+      // Cell backgrounds and text
+      let yTop = pageH - t.y; // top edge in pdf coords
+      for (let r = 0; r < t.cells.length; r++) {
+        const rh = t.rowHeights[r];
+        let xLeft = t.x;
+        for (let c = 0; c < t.cells[r].length; c++) {
+          const cw = t.colWidths[c];
+          const cell = t.cells[r][c];
+          const bg = hexToRgb(cell.bg || "#ffffff");
+          p.drawRectangle({ x: xLeft, y: yTop - rh, width: cw, height: rh, color: rgb(bg.r, bg.g, bg.b) });
+          // text
+          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic);
+          const size = cell.fontSize || 11;
+          const tc = hexToRgb(cell.color || "#0b1320");
+          const pad = cell.padding ?? 4;
+          const lines = (cell.text || "").split("\n");
+          const lineH = size * 1.2;
+          const blockH = lines.length * lineH;
+          let ty: number;
+          if (cell.vAlign === "top") ty = yTop - pad - size;
+          else if (cell.vAlign === "bottom") ty = yTop - rh + pad + (blockH - size);
+          else ty = yTop - rh / 2 + blockH / 2 - size;
+          for (const line of lines) {
+            const tw = font.widthOfTextAtSize(line, size);
+            let tx: number;
+            if (cell.hAlign === "center") tx = xLeft + (cw - tw) / 2;
+            else if (cell.hAlign === "right") tx = xLeft + cw - pad - tw;
+            else tx = xLeft + pad;
+            p.drawText(line, { x: tx, y: ty, size, font, color: rgb(tc.r, tc.g, tc.b) });
+            if (cell.underline) {
+              p.drawLine({
+                start: { x: tx, y: ty - 1 }, end: { x: tx + tw, y: ty - 1 },
+                thickness: Math.max(0.5, size * 0.06), color: rgb(tc.r, tc.g, tc.b),
+              });
+            }
+            ty -= lineH;
+          }
+          xLeft += cw;
+        }
+        yTop -= rh;
+      }
+      // Borders (draw grid + outer)
+      if (t.borderVisible) {
+        const bw = t.borderWidth;
+        const topY = pageH - t.y;
+        // horizontal lines
+        let hy = topY;
+        for (let r = 0; r <= t.rowHeights.length; r++) {
+          p.drawLine({ start: { x: t.x, y: hy }, end: { x: t.x + totalW, y: hy }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
+          if (r < t.rowHeights.length) hy -= t.rowHeights[r];
+        }
+        // vertical lines
+        let vx = t.x;
+        for (let c = 0; c <= t.colWidths.length; c++) {
+          p.drawLine({ start: { x: vx, y: topY }, end: { x: vx, y: topY - totalH }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
+          if (c < t.colWidths.length) vx += t.colWidths[c];
+        }
+      }
+    }
     return await out.save();
   }
 
