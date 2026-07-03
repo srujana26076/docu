@@ -20,6 +20,7 @@ export interface DocRow {
   updated_at: string;
   invoice_number?: string | null;
   invoice_date?: string | null;
+  tables_json?: any;
 }
 
 export async function listDocuments(folder?: Folder): Promise<DocRow[]> {
