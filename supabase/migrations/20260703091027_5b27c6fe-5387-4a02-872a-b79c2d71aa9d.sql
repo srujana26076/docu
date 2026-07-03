@@ -1,0 +1,1 @@
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS tables_json jsonb NOT NULL DEFAULT '[]'::jsonb;
