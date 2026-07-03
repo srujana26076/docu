@@ -538,6 +538,26 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             <SelectItem value="template">Templates</SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative">
+          <Button variant="outline" size="sm" onClick={() => setInsertOpen((v) => !v)}>
+            Insert ▾
+          </Button>
+          {insertOpen && (
+            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg min-w-[180px]">
+              <div className="relative group">
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  onClick={(e) => e.currentTarget.parentElement?.classList.toggle("open")}
+                >
+                  <TableIcon className="h-4 w-4" /> Table
+                </button>
+                <div className="hidden group-[.open]:block group-hover:block absolute left-full top-0 ml-1">
+                  <TableGridPicker onPick={insertTable} onClose={() => setInsertOpen(false)} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="h-4 w-4 mr-2" />Download
