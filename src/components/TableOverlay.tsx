@@ -235,10 +235,7 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
   const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const MAX_R = 8, MAX_C = 10;
   return (
-    <div
-      className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg p-3"
-      onMouseLeave={() => setHover({ r: 0, c: 0 })}
-    >
+    <div onMouseLeave={() => setHover({ r: 0, c: 0 })}>
       <div className="text-xs font-medium mb-2 text-center">
         {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c} Table` : "Insert Table"}
       </div>
