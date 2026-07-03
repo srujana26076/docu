@@ -25,6 +25,7 @@ export type Database = {
           name: string
           size_bytes: number | null
           storage_path: string
+          tables_json: Json
           updated_at: string
         }
         Insert: {
@@ -37,6 +38,7 @@ export type Database = {
           name: string
           size_bytes?: number | null
           storage_path: string
+          tables_json?: Json
           updated_at?: string
         }
         Update: {
@@ -49,6 +51,7 @@ export type Database = {
           name?: string
           size_bytes?: number | null
           storage_path?: string
+          tables_json?: Json
           updated_at?: string
         }
         Relationships: []

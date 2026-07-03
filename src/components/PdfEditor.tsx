@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Save, Download, Trash2, Bold, Italic, Type, Undo2, ZoomIn, ZoomOut, RotateCcw,
+  Save, Download, Trash2, Bold, Italic, Underline, Type, Undo2, ZoomIn, ZoomOut, RotateCcw,
+  Table as TableIcon, Plus, Minus, AlignLeft, AlignCenter, AlignRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
+import { TableOverlayView, TableGridPicker, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
 
 // ---- pdfjs lazy loader ----------------------------------------------------
 type PdfJsLib = typeof import("pdfjs-dist");
@@ -113,6 +115,74 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   const pageCanvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({});
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(doc.invoice_number ?? null);
   const [invoiceDate, setInvoiceDate] = useState<string>(doc.invoice_date ?? formatToday());
+
+  // ---- Tables state ----
+  const [tables, setTables] = useState<TableData[]>(Array.isArray(doc.tables_json) ? doc.tables_json : []);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+  const updateTable = (id: string, patch: Partial<TableData> | ((t: TableData) => TableData)) => {
+    setTables((arr) => arr.map((t) => t.id === id ? (typeof patch === "function" ? patch(t) : { ...t, ...patch }) : t));
+  };
+  const patchCell = (patch: Partial<TableCell>) => {
+    if (!selectedTable || !selectedCell) return;
+    const cells = selectedTable.cells.map((row) => row.slice());
+    cells[selectedCell.r][selectedCell.c] = { ...cells[selectedCell.r][selectedCell.c], ...patch };
+    updateTable(selectedTable.id, { cells });
+  };
+  const selCell = selectedTable && selectedCell ? selectedTable.cells[selectedCell.r]?.[selectedCell.c] : null;
+
+  function insertTable(rows: number, cols: number) {
+    if (!pageSizes.length) return;
+    // insert on page 1 centered-ish
+    const t = makeTable(1, rows, cols, 60, 120);
+    setTables((arr) => [...arr, t]);
+    setSelectedTableId(t.id);
+    setSelectedCell({ r: 0, c: 0 });
+    toast.success(`Inserted ${rows}×${cols} table`);
+  }
+  function addRow(after = true) {
+    if (!selectedTable) return;
+    const idx = after ? (selectedCell?.r ?? selectedTable.cells.length - 1) + 1 : (selectedCell?.r ?? 0);
+    const cols = selectedTable.colWidths.length;
+    const newRow = Array.from({ length: cols }, defaultCell);
+    const cells = selectedTable.cells.slice(); cells.splice(idx, 0, newRow);
+    const rowHeights = selectedTable.rowHeights.slice(); rowHeights.splice(idx, 0, rowHeights[0] ?? 24);
+    updateTable(selectedTable.id, { cells, rowHeights });
+  }
+  function delRow() {
+    if (!selectedTable || selectedCell == null) return;
+    if (selectedTable.cells.length <= 1) return;
+    const idx = selectedCell.r;
+    const cells = selectedTable.cells.filter((_, i) => i !== idx);
+    const rowHeights = selectedTable.rowHeights.filter((_, i) => i !== idx);
+    updateTable(selectedTable.id, { cells, rowHeights });
+    setSelectedCell({ r: Math.max(0, idx - 1), c: selectedCell.c });
+  }
+  function addCol(after = true) {
+    if (!selectedTable) return;
+    const idx = after ? (selectedCell?.c ?? selectedTable.colWidths.length - 1) + 1 : (selectedCell?.c ?? 0);
+    const cells = selectedTable.cells.map((row) => { const r = row.slice(); r.splice(idx, 0, defaultCell()); return r; });
+    const colWidths = selectedTable.colWidths.slice(); colWidths.splice(idx, 0, colWidths[0] ?? 80);
+    updateTable(selectedTable.id, { cells, colWidths });
+  }
+  function delCol() {
+    if (!selectedTable || selectedCell == null) return;
+    if (selectedTable.colWidths.length <= 1) return;
+    const idx = selectedCell.c;
+    const cells = selectedTable.cells.map((row) => row.filter((_, i) => i !== idx));
+    const colWidths = selectedTable.colWidths.filter((_, i) => i !== idx);
+    updateTable(selectedTable.id, { cells, colWidths });
+    setSelectedCell({ r: selectedCell.r, c: Math.max(0, idx - 1) });
+  }
+  function deleteTable() {
+    if (!selectedTable) return;
+    if (!confirm("Delete this table?")) return;
+    setTables((arr) => arr.filter((t) => t.id !== selectedTable.id));
+    setSelectedTableId(null); setSelectedCell(null);
+  }
+
   // Live-track today's date while editing
   useEffect(() => {
     const id = setInterval(() => {
@@ -311,6 +381,73 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         x: f.x, y: f.y, size: f.fontSize, font, color: rgb(c.r, c.g, c.b),
       });
     }
+    // Draw tables
+    for (const t of tables) {
+      const p = pages[t.page - 1];
+      if (!p) continue;
+      const pageH = p.getHeight();
+      const totalW = t.colWidths.reduce((a, b) => a + b, 0);
+      const totalH = t.rowHeights.reduce((a, b) => a + b, 0);
+      const bc = hexToRgb(t.borderColor);
+      // Cell backgrounds and text
+      let yTop = pageH - t.y; // top edge in pdf coords
+      for (let r = 0; r < t.cells.length; r++) {
+        const rh = t.rowHeights[r];
+        let xLeft = t.x;
+        for (let c = 0; c < t.cells[r].length; c++) {
+          const cw = t.colWidths[c];
+          const cell = t.cells[r][c];
+          const bg = hexToRgb(cell.bg || "#ffffff");
+          p.drawRectangle({ x: xLeft, y: yTop - rh, width: cw, height: rh, color: rgb(bg.r, bg.g, bg.b) });
+          // text
+          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic);
+          const size = cell.fontSize || 11;
+          const tc = hexToRgb(cell.color || "#0b1320");
+          const pad = cell.padding ?? 4;
+          const lines = (cell.text || "").split("\n");
+          const lineH = size * 1.2;
+          const blockH = lines.length * lineH;
+          let ty: number;
+          if (cell.vAlign === "top") ty = yTop - pad - size;
+          else if (cell.vAlign === "bottom") ty = yTop - rh + pad + (blockH - size);
+          else ty = yTop - rh / 2 + blockH / 2 - size;
+          for (const line of lines) {
+            const tw = font.widthOfTextAtSize(line, size);
+            let tx: number;
+            if (cell.hAlign === "center") tx = xLeft + (cw - tw) / 2;
+            else if (cell.hAlign === "right") tx = xLeft + cw - pad - tw;
+            else tx = xLeft + pad;
+            p.drawText(line, { x: tx, y: ty, size, font, color: rgb(tc.r, tc.g, tc.b) });
+            if (cell.underline) {
+              p.drawLine({
+                start: { x: tx, y: ty - 1 }, end: { x: tx + tw, y: ty - 1 },
+                thickness: Math.max(0.5, size * 0.06), color: rgb(tc.r, tc.g, tc.b),
+              });
+            }
+            ty -= lineH;
+          }
+          xLeft += cw;
+        }
+        yTop -= rh;
+      }
+      // Borders (draw grid + outer)
+      if (t.borderVisible) {
+        const bw = t.borderWidth;
+        const topY = pageH - t.y;
+        // horizontal lines
+        let hy = topY;
+        for (let r = 0; r <= t.rowHeights.length; r++) {
+          p.drawLine({ start: { x: t.x, y: hy }, end: { x: t.x + totalW, y: hy }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
+          if (r < t.rowHeights.length) hy -= t.rowHeights[r];
+        }
+        // vertical lines
+        let vx = t.x;
+        for (let c = 0; c <= t.colWidths.length; c++) {
+          p.drawLine({ start: { x: vx, y: topY }, end: { x: vx, y: topY - totalH }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
+          if (c < t.colWidths.length) vx += t.colWidths[c];
+        }
+      }
+    }
     return await out.save();
   }
 
@@ -352,6 +489,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         size_bytes: u8.byteLength, is_default: false,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
+        tables_json: tables as any,
       });
       if (error) throw error;
       toast.success(`Saved to ${folderMeta[folder].title}`);
@@ -400,6 +538,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             <SelectItem value="template">Templates</SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative">
+          <Button variant="outline" size="sm" onClick={() => setInsertOpen((v) => !v)}>
+            Insert ▾
+          </Button>
+          {insertOpen && (
+            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg p-3">
+              <div className="flex items-center gap-2 px-1 pb-2 text-sm font-medium">
+                <TableIcon className="h-4 w-4" /> Table
+              </div>
+              <TableGridPicker onPick={(r, c) => insertTable(r, c)} onClose={() => setInsertOpen(false)} />
+            </div>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="h-4 w-4 mr-2" />Download
@@ -538,6 +689,69 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             </div>
           </div>
 
+          {/* Table toolbar */}
+          {selectedTable && (
+            <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center gap-2 flex-wrap text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <TableIcon className="h-4 w-4" /><span>Table</span>
+              </div>
+              <div className="h-5 w-px bg-border" />
+              <Button size="sm" variant="outline" onClick={() => addRow(false)}><Plus className="h-3 w-3 mr-1" />Row above</Button>
+              <Button size="sm" variant="outline" onClick={() => addRow(true)}><Plus className="h-3 w-3 mr-1" />Row below</Button>
+              <Button size="sm" variant="outline" onClick={delRow}><Minus className="h-3 w-3 mr-1" />Row</Button>
+              <div className="h-5 w-px bg-border" />
+              <Button size="sm" variant="outline" onClick={() => addCol(false)}><Plus className="h-3 w-3 mr-1" />Col left</Button>
+              <Button size="sm" variant="outline" onClick={() => addCol(true)}><Plus className="h-3 w-3 mr-1" />Col right</Button>
+              <Button size="sm" variant="outline" onClick={delCol}><Minus className="h-3 w-3 mr-1" />Col</Button>
+              <div className="h-5 w-px bg-border" />
+              {/* Cell-level formatting */}
+              <Button size="icon" variant={selCell?.bold ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ bold: !selCell?.bold })}><Bold className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.italic ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ italic: !selCell?.italic })}><Italic className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.underline ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ underline: !selCell?.underline })}><Underline className="h-3.5 w-3.5" /></Button>
+              <select disabled={!selCell} value={selCell?.fontFamily ?? "Arial"} onChange={(e) => patchCell({ fontFamily: e.target.value })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[130px]"
+                style={{ fontFamily: selCell?.fontFamily ?? "Arial" }}>
+                {FONT_FAMILIES.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+              </select>
+              <Input type="number" min={6} max={96} disabled={!selCell}
+                value={selCell?.fontSize ?? 11}
+                onChange={(e) => patchCell({ fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 11)) })}
+                className="h-8 w-16" />
+              <label className="flex items-center gap-1 text-xs">Text
+                <input type="color" disabled={!selCell} value={selCell?.color ?? "#0b1320"} onChange={(e) => patchCell({ color: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+              </label>
+              <label className="flex items-center gap-1 text-xs">Fill
+                <input type="color" disabled={!selCell} value={selCell?.bg ?? "#ffffff"} onChange={(e) => patchCell({ bg: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+              </label>
+              <Button size="icon" variant={selCell?.hAlign === "left" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "left" })}><AlignLeft className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.hAlign === "center" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "center" })}><AlignCenter className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant={selCell?.hAlign === "right" ? "default" : "outline"} className="h-8 w-8" disabled={!selCell} onClick={() => patchCell({ hAlign: "right" })}><AlignRight className="h-3.5 w-3.5" /></Button>
+              <select disabled={!selCell} value={selCell?.vAlign ?? "middle"} onChange={(e) => patchCell({ vAlign: e.target.value as any })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm">
+                <option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option>
+              </select>
+              <label className="flex items-center gap-1 text-xs">Pad
+                <Input type="number" min={0} max={40} disabled={!selCell} value={selCell?.padding ?? 4}
+                  onChange={(e) => patchCell({ padding: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })}
+                  className="h-8 w-14" />
+              </label>
+              <div className="h-5 w-px bg-border" />
+              <label className="flex items-center gap-1 text-xs">Border
+                <input type="color" value={selectedTable.borderColor} onChange={(e) => updateTable(selectedTable.id, { borderColor: e.target.value })} className="h-7 w-8 rounded border border-border p-0" />
+                <Input type="number" min={0} max={8} step={0.5} value={selectedTable.borderWidth}
+                  onChange={(e) => updateTable(selectedTable.id, { borderWidth: Math.max(0, Math.min(8, Number(e.target.value) || 0)) })}
+                  className="h-8 w-14" />
+                <Button size="sm" variant={selectedTable.borderVisible ? "default" : "outline"}
+                  onClick={() => updateTable(selectedTable.id, { borderVisible: !selectedTable.borderVisible })}>
+                  {selectedTable.borderVisible ? "Show" : "Hide"}
+                </Button>
+              </label>
+              <Button size="sm" variant="destructive" onClick={deleteTable} className="ml-auto">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />Delete table
+              </Button>
+            </div>
+          )}
+
           {/* Preview */}
           <div ref={previewWrapRef} className="flex-1 overflow-auto bg-muted/30 p-6">
             <div className="flex flex-col items-center gap-6">
@@ -547,8 +761,11 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 const list = fieldsByPage.get(pn) ?? [];
                 const wPx = size.wPt * pageScale;
                 const hPx = size.hPt * pageScale;
+                const pageTables = tables.filter((t) => t.page === pn);
                 return (
-                  <div key={pn} className="relative shadow-lg bg-white" style={{ width: wPx, height: hPx }}>
+                  <div key={pn} className="relative shadow-lg bg-white"
+                    onMouseDown={() => { setSelectedTableId(null); setSelectedCell(null); }}
+                    style={{ width: wPx, height: hPx }}>
                     <canvas
                       ref={(el) => { pageCanvasRefs.current[pn] = el; }}
                       className="block"
@@ -598,6 +815,19 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                         );
                       })}
                     </div>
+                    {/* Table overlays */}
+                    {pageTables.map((t) => (
+                      <TableOverlayView
+                        key={t.id}
+                        table={t}
+                        scale={pageScale}
+                        selected={selectedTableId === t.id}
+                        selectedCell={selectedTableId === t.id ? selectedCell : null}
+                        onSelect={() => setSelectedTableId(t.id)}
+                        onSelectCell={(r, c) => setSelectedCell({ r, c })}
+                        onChange={(nt) => updateTable(t.id, nt)}
+                      />
+                    ))}
                   </div>
                 );
               })}
