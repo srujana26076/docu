@@ -249,7 +249,7 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
         {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c} Table` : "Insert Table"}
       </div>
       <div
-        className="grid gap-0.5"
+        className="grid gap-0.5 p-1 bg-muted/40 rounded"
         style={{ gridTemplateColumns: `repeat(${MAX_C}, 18px)` }}
       >
         {Array.from({ length: MAX_R * MAX_C }).map((_, i) => {
@@ -263,8 +263,8 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
               onClick={() => { onPick(hover.r, hover.c); onClose(); }}
               style={{
                 width: 18, height: 18,
-                border: "1px solid hsl(var(--border))",
-                background: active ? "hsl(var(--primary))" : "hsl(var(--background))",
+                border: "1px solid #64748b",
+                background: active ? "hsl(var(--primary))" : "#ffffff",
                 cursor: "pointer",
               }}
             />
