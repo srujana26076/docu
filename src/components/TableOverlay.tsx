@@ -115,7 +115,15 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
 
   return (
     <div
-      onMouseDown={(e) => { e.stopPropagation(); onSelect(); }}
+      data-table
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        onSelect();
+        // Start drag when clicking the table frame itself (not a cell)
+        if (e.target === e.currentTarget) {
+          setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
+        }
+      }}
       style={{
         position: "absolute",
         left: table.x * scale,
@@ -124,7 +132,8 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
         height: totalH * scale,
         outline: selected ? "2px solid hsl(var(--ring))" : "none",
         outlineOffset: 2,
-        cursor: drag ? "grabbing" : "default",
+        cursor: drag ? "grabbing" : selected ? "grab" : "default",
+        padding: 8,
         zIndex: 5,
       }}
     >
@@ -136,13 +145,13 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
             setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
           }}
           style={{
-            position: "absolute", left: -22, top: -22, width: 20, height: 20,
+            position: "absolute", left: -10, top: -10, width: 22, height: 22,
             background: "hsl(var(--primary))", color: "white",
             borderRadius: 4, display: "grid", placeItems: "center",
-            fontSize: 12, cursor: "grab", userSelect: "none",
+            fontSize: 12, cursor: "grab", userSelect: "none", zIndex: 6,
           }}
           title="Drag to move"
-        >⇔</div>
+        >✥</div>
       )}
       {/* cells */}
       <div style={{ display: "grid", gridTemplateColumns: table.colWidths.map((w) => `${w * scale}px`).join(" "), gridTemplateRows: table.rowHeights.map((h) => `${h * scale}px`).join(" ") }}>
