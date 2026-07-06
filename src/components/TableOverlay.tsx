@@ -119,10 +119,6 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
       onMouseDown={(e) => {
         e.stopPropagation();
         onSelect();
-        // Start drag when clicking the table frame itself (not a cell)
-        if (e.target === e.currentTarget) {
-          setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
-        }
       }}
       style={{
         position: "absolute",
@@ -133,25 +129,28 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
         outline: selected ? "2px solid hsl(var(--ring))" : "none",
         outlineOffset: 2,
         cursor: drag ? "grabbing" : selected ? "grab" : "default",
-        padding: 8,
         zIndex: 5,
       }}
     >
-      {/* drag handle */}
+      {/* Move bar (top) — click and drag to move */}
       {selected && (
         <div
           onMouseDown={(e) => {
             e.stopPropagation();
+            e.preventDefault();
+            onSelect();
             setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
           }}
           style={{
-            position: "absolute", left: -10, top: -10, width: 22, height: 22,
+            position: "absolute", left: 0, right: 0, top: -18, height: 16,
             background: "hsl(var(--primary))", color: "white",
-            borderRadius: 4, display: "grid", placeItems: "center",
-            fontSize: 12, cursor: "grab", userSelect: "none", zIndex: 6,
+            borderTopLeftRadius: 4, borderTopRightRadius: 4,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, cursor: drag ? "grabbing" : "grab",
+            userSelect: "none", zIndex: 6,
           }}
-          title="Drag to move"
-        >✥</div>
+          title="Drag to move table"
+        >✥ move</div>
       )}
       {/* cells */}
       <div style={{ display: "grid", gridTemplateColumns: table.colWidths.map((w) => `${w * scale}px`).join(" "), gridTemplateRows: table.rowHeights.map((h) => `${h * scale}px`).join(" ") }}>
