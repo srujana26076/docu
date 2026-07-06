@@ -86,9 +86,9 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
   }, [drag, scale, onChange, table]);
 
-  const startMove = useCallback((e: ReactMouseEvent) => {
+  const startMove = useCallback((e: ReactMouseEvent, shouldPreventDefault = false) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (shouldPreventDefault) e.preventDefault();
     onSelect();
     setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y, moved: false });
   }, [onSelect, table.x, table.y]);
@@ -145,7 +145,7 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
       {/* Move bar (top) — click and drag to move */}
       {selected && (
         <div
-          onMouseDown={startMove}
+          onMouseDown={(e) => startMove(e, true)}
           style={{
             position: "absolute", left: 0, right: 0, top: -22, height: 20,
             background: "var(--primary)", color: "var(--primary-foreground)",
@@ -264,7 +264,7 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
             <div
               key={i}
               onMouseEnter={() => setHover({ r, c })}
-              onClick={() => { onPick(hover.r, hover.c); onClose(); }}
+              onClick={() => { onPick(r, c); onClose(); }}
               style={{
                 width: 18, height: 18,
                 border: "1px solid #64748b",
