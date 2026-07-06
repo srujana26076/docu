@@ -115,7 +115,15 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
 
   return (
     <div
-      onMouseDown={(e) => { e.stopPropagation(); onSelect(); }}
+      data-table
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        onSelect();
+        // Start drag when clicking the table frame itself (not a cell)
+        if (e.target === e.currentTarget) {
+          setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
+        }
+      }}
       style={{
         position: "absolute",
         left: table.x * scale,
@@ -124,7 +132,8 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
         height: totalH * scale,
         outline: selected ? "2px solid hsl(var(--ring))" : "none",
         outlineOffset: 2,
-        cursor: drag ? "grabbing" : "default",
+        cursor: drag ? "grabbing" : selected ? "grab" : "default",
+        padding: 8,
         zIndex: 5,
       }}
     >
@@ -136,13 +145,13 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
             setDrag({ sx: e.clientX, sy: e.clientY, ox: table.x, oy: table.y });
           }}
           style={{
-            position: "absolute", left: -22, top: -22, width: 20, height: 20,
+            position: "absolute", left: -10, top: -10, width: 22, height: 22,
             background: "hsl(var(--primary))", color: "white",
             borderRadius: 4, display: "grid", placeItems: "center",
-            fontSize: 12, cursor: "grab", userSelect: "none",
+            fontSize: 12, cursor: "grab", userSelect: "none", zIndex: 6,
           }}
           title="Drag to move"
-        >⇔</div>
+        >✥</div>
       )}
       {/* cells */}
       <div style={{ display: "grid", gridTemplateColumns: table.colWidths.map((w) => `${w * scale}px`).join(" "), gridTemplateRows: table.rowHeights.map((h) => `${h * scale}px`).join(" ") }}>
@@ -240,7 +249,7 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
         {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c} Table` : "Insert Table"}
       </div>
       <div
-        className="grid gap-0.5"
+        className="grid gap-0.5 p-1 bg-muted/40 rounded"
         style={{ gridTemplateColumns: `repeat(${MAX_C}, 18px)` }}
       >
         {Array.from({ length: MAX_R * MAX_C }).map((_, i) => {
@@ -254,8 +263,8 @@ export function TableGridPicker({ onPick, onClose }: { onPick: (rows: number, co
               onClick={() => { onPick(hover.r, hover.c); onClose(); }}
               style={{
                 width: 18, height: 18,
-                border: "1px solid hsl(var(--border))",
-                background: active ? "hsl(var(--primary))" : "hsl(var(--background))",
+                border: "1px solid #64748b",
+                background: active ? "hsl(var(--primary))" : "#ffffff",
                 cursor: "pointer",
               }}
             />
