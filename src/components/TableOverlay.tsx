@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from "react";
 
 export interface TableCell {
   text: string;
@@ -86,7 +86,7 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
   }, [drag, scale, onChange, table]);
 
-  const startMove = useCallback((e: React.MouseEvent) => {
+  const startMove = useCallback((e: ReactMouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     onSelect();
