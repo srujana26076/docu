@@ -495,11 +495,25 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       // Auto-record accounting entries for invoices
       if (folder === "invoice") {
         try {
-          const allText = fieldsForBake.map((f) => f.text).join(" \n ");
-          const nums = Array.from(allText.matchAll(/(?:₹|\$|€|£|Rs\.?)?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+\.[0-9]{2}|[0-9]+)/g))
-            .map((m) => parseFloat(m[1].replace(/,/g, "")))
-            .filter((n) => !isNaN(n) && n >= 1);
-          const amount = nums.length ? Math.max(...nums) : 0;
+          // Extract invoice total: prefer a line mentioning "total"/"grand total"/"amount",
+          // else fall back to the largest plausible currency number (<= 1e9).
+          const parseCurrencyNums = (s: string) =>
+            Array.from(
+              s.matchAll(/(?:₹|\$|€|£|Rs\.?)?\s*([0-9]{1,3}(?:,[0-9]{2,3})+(?:\.[0-9]+)?|[0-9]+\.[0-9]{2})/g)
+            )
+              .map((m) => parseFloat(m[1].replace(/,/g, "")))
+              .filter((n) => !isNaN(n) && n >= 1 && n <= 1e9);
+          const lines = fieldsForBake.map((f) => f.text);
+          const totalLines = lines.filter((t) => /grand\s*total|\btotal\b|amount\s*(due|payable)?/i.test(t));
+          let amount = 0;
+          for (const t of totalLines) {
+            const n = parseCurrencyNums(t);
+            if (n.length) { amount = Math.max(amount, ...n); }
+          }
+          if (!amount) {
+            const n = parseCurrencyNums(lines.join(" \n "));
+            amount = n.length ? Math.max(...n) : 0;
+          }
           if (amount > 0) {
             const inserted = await supabase.from("documents").select("id").eq("storage_path", path).maybeSingle();
             const docId = inserted.data?.id ?? null;
