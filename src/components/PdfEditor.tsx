@@ -492,6 +492,26 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         tables_json: tables as any,
       });
       if (error) throw error;
+      // Auto-record accounting entries for invoices
+      if (folder === "invoice") {
+        try {
+          const allText = fieldsForBake.map((f) => f.text).join(" \n ");
+          const nums = Array.from(allText.matchAll(/(?:₹|\$|€|£|Rs\.?)?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+\.[0-9]{2}|[0-9]+)/g))
+            .map((m) => parseFloat(m[1].replace(/,/g, "")))
+            .filter((n) => !isNaN(n) && n >= 1);
+          const amount = nums.length ? Math.max(...nums) : 0;
+          if (amount > 0) {
+            const inserted = await supabase.from("documents").select("id").eq("storage_path", path).maybeSingle();
+            const docId = inserted.data?.id ?? null;
+            const desc = `Invoice ${finalInvoice ?? safe}`;
+            const entry_date = new Date().toISOString().slice(0, 10);
+            await supabase.from("ledger_entries" as any).insert([
+              { entry_date, account: "Accounts Receivable", entry_type: "debit", amount, description: desc, document_id: docId },
+              { entry_date, account: "Sales Revenue", entry_type: "credit", amount, description: desc, document_id: docId },
+            ]);
+          }
+        } catch { /* non-fatal */ }
+      }
       toast.success(`Saved to ${folderMeta[folder].title}`);
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });

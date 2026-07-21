@@ -74,6 +74,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ledger_entries: {
+        Row: {
+          account: string
+          amount: number
+          created_at: string
+          description: string | null
+          document_id: string | null
+          entry_date: string
+          entry_type: string
+          id: string
+        }
+        Insert: {
+          account: string
+          amount?: number
+          created_at?: string
+          description?: string | null
+          document_id?: string | null
+          entry_date?: string
+          entry_type: string
+          id?: string
+        }
+        Update: {
+          account?: string
+          amount?: number
+          created_at?: string
+          description?: string | null
+          document_id?: string | null
+          entry_date?: string
+          entry_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
