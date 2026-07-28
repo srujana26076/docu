@@ -484,13 +484,13 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const blob = new Blob([u8 as any], { type: "application/pdf" });
       const { error: upErr } = await supabase.storage.from("documents").upload(path, blob, { contentType: "application/pdf" });
       if (upErr) throw upErr;
-      const { error } = await supabase.from("documents").insert({
+      const { data: newDoc, error } = await supabase.from("documents").insert({
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
         tables_json: tables as any,
-      });
+      }).select("id").single();
       if (error) throw error;
       // Auto-record accounting entries for invoices
       if (folder === "invoice") {
@@ -515,10 +515,11 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             amount = n.length ? Math.max(...n) : 0;
           }
           if (amount > 0) {
-            const inserted = await supabase.from("documents").select("id").eq("storage_path", path).maybeSingle();
-            const docId = inserted.data?.id ?? null;
+            const docId = (newDoc as any)?.id ?? null;
             const desc = `Invoice ${finalInvoice ?? safe}`;
             const entry_date = new Date().toISOString().slice(0, 10);
+            // Avoid duplicates: clear any prior entries for this same invoice
+            await supabase.from("ledger_entries" as any).delete().eq("description", desc);
             await supabase.from("ledger_entries" as any).insert([
               { entry_date, account: "Accounts Receivable", entry_type: "debit", amount, description: desc, document_id: docId },
               { entry_date, account: "Sales Revenue", entry_type: "credit", amount, description: desc, document_id: docId },
