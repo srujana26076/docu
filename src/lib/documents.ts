@@ -63,6 +63,8 @@ export async function uploadPdf(file: File | Blob, folder: Folder, name: string)
 export async function deleteDocument(doc: DocRow) {
   if (doc.is_default) throw new Error("Default files cannot be deleted");
   await supabase.storage.from("documents").remove([doc.storage_path]);
+  // Remove any accounting entries tied to this document (DB also cascades).
+  await supabase.from("ledger_entries").delete().eq("document_id", doc.id);
   const { error } = await supabase.from("documents").delete().eq("id", doc.id);
   if (error) throw error;
 }
