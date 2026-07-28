@@ -57,6 +57,7 @@ export function FolderView({ folder }: { folder: Folder }) {
       toast.success("Deleted");
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["ledger-entries"] });
     } catch (e: any) {
       toast.error(e?.message ?? "Delete failed");
     }
