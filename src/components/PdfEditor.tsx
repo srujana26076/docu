@@ -12,7 +12,34 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
-import { TableOverlayView, TableGridPicker, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
+import { TableOverlayView, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
+
+// ---- invoice table config -------------------------------------------------
+const INVOICE_HEADERS = ["Requirements", "HSN", "Unit price", "Quantity", "Taxable amount", "GST(18%)", "Total (₹)"];
+const INVOICE_COL_WIDTHS = [130, 50, 65, 55, 85, 75, 80];
+const num = (s: string) => {
+  const n = parseFloat((s || "").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+const money = (n: number) => n.toFixed(2);
+function rateOf(text: string) {
+  const m = /([\d.]+)\s*%/.exec(text || "");
+  return m ? parseFloat(m[1]) : 18;
+}
+/** Recompute taxable / gst / total columns for one row (cols 4,5,6). */
+function recalcRow(row: TableCell[]): TableCell[] {
+  const r = row.slice();
+  const taxable = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
+  const rate = rateOf(r[5]?.text ?? "");
+  const gst = (taxable * rate) / 100;
+  if (r[4]) r[4] = { ...r[4], text: money(taxable) };
+  if (r[5]) r[5] = { ...r[5], text: `${rate}% (${money(gst)})` };
+  if (r[6]) r[6] = { ...r[6], text: money(taxable + gst) };
+  return r;
+}
+function isInvoiceTable(t: TableData) {
+  return t.colWidths.length === 7 && (t.cells[0]?.[0]?.text ?? "") === "Requirements";
+}
 
 // ---- pdfjs lazy loader ----------------------------------------------------
 type PdfJsLib = typeof import("pdfjs-dist");
