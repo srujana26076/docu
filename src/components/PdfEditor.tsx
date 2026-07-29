@@ -187,6 +187,16 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   // ---- Left-panel GST calculation, driven directly by the invoice table ----
   const invoiceTable = tables.find(isInvoiceTable) ?? null;
+  const [gstMode, setGstMode] = useState<"exclusive" | "inclusive">("exclusive");
+  const [taxTypes, setTaxTypes] = useState<Record<number, string>>({});
+  const gstTotals = (invoiceTable?.cells.slice(1) ?? []).reduce(
+    (acc, row) => {
+      const taxable = num(row[4]?.text ?? "");
+      const total = num(row[6]?.text ?? "");
+      return { taxable: acc.taxable + taxable, gst: acc.gst + (total - taxable), total: acc.total + total };
+    },
+    { taxable: 0, gst: 0, total: 0 },
+  );
   const setLineCell = (rowIdx: number, colIdx: number, value: string) => {
     if (!invoiceTable) return;
     updateTable(invoiceTable.id, (t) => {
