@@ -687,6 +687,50 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             </div>
           </div>
           <div className="flex-1 overflow-auto">
+            {invoiceTable && (
+              <div className="border-b border-border bg-muted/20">
+                <div className="px-4 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground flex items-center justify-between">
+                  GST CALCULATION
+                  <Button size="sm" variant="outline" className="h-7" onClick={addLineItem}>
+                    <Plus className="h-3 w-3 mr-1" />Add line item
+                  </Button>
+                </div>
+                {invoiceTable.cells.slice(1).map((row, i) => {
+                  const r = i + 1;
+                  return (
+                    <div key={r} className="px-4 py-3 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
+                        ITEM {r}
+                        <button className="text-destructive hover:underline" onClick={() => removeLineItem(r)}>Remove</button>
+                      </div>
+                      <Input className="h-8" placeholder="Requirements" value={row[0]?.text ?? ""}
+                        onChange={(e) => setLineCell(r, 0, e.target.value)} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input className="h-8" placeholder="HSN" value={row[1]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 1, e.target.value)} />
+                        <Input className="h-8" placeholder="Unit price" value={row[2]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 2, e.target.value)} />
+                        <Input className="h-8" placeholder="Qty" value={row[3]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 3, e.target.value)} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">GST</span>
+                        <select
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                          value={String(rateOf(row[5]?.text ?? ""))}
+                          onChange={(e) => setLineCell(r, 5, `${e.target.value}%`)}
+                        >
+                          {[0, 5, 12, 18, 28].map((v) => <option key={v} value={v}>{v}%</option>)}
+                        </select>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          Taxable ₹{row[4]?.text || "0.00"} · Total ₹{row[6]?.text || "0.00"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {pageNumbers.map((pn) => {
               const list = fieldsByPage.get(pn) ?? [];
               return (
