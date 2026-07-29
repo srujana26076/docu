@@ -688,47 +688,132 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           </div>
           <div className="flex-1 overflow-auto">
             {invoiceTable && (
-              <div className="border-b border-border bg-muted/20">
-                <div className="px-4 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground flex items-center justify-between">
-                  GST CALCULATION
-                  <Button size="sm" variant="outline" className="h-7" onClick={addLineItem}>
-                    <Plus className="h-3 w-3 mr-1" />Add line item
-                  </Button>
+              <div className="border-b border-border px-4 py-4 space-y-4">
+                <div className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground">GST CALCULATION</div>
+
+                {/* Exclusive / Inclusive */}
+                <div className="grid grid-cols-2 gap-3">
+                  {(["exclusive", "inclusive"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setGstMode(m)}
+                      className={`h-11 rounded-md border text-sm font-medium capitalize transition-colors ${
+                        gstMode === m
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card text-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  {gstMode === "exclusive"
+                    ? "GST is added to the entered amount."
+                    : "GST is included in the entered amount."}
+                </p>
+
                 {invoiceTable.cells.slice(1).map((row, i) => {
                   const r = i + 1;
+                  const taxType = taxTypes[r] ?? "IGST";
+                  const gstAmount = num(row[6]?.text ?? "") - num(row[4]?.text ?? "");
                   return (
-                    <div key={r} className="px-4 py-3 border-t border-border space-y-2">
-                      <div className="flex items-center justify-between text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
-                        ITEM {r}
-                        <button className="text-destructive hover:underline" onClick={() => removeLineItem(r)}>Remove</button>
-                      </div>
-                      <Input className="h-8" placeholder="Requirements" value={row[0]?.text ?? ""}
-                        onChange={(e) => setLineCell(r, 0, e.target.value)} />
-                      <div className="grid grid-cols-3 gap-2">
-                        <Input className="h-8" placeholder="HSN" value={row[1]?.text ?? ""}
-                          onChange={(e) => setLineCell(r, 1, e.target.value)} />
-                        <Input className="h-8" placeholder="Unit price" value={row[2]?.text ?? ""}
-                          onChange={(e) => setLineCell(r, 2, e.target.value)} />
-                        <Input className="h-8" placeholder="Qty" value={row[3]?.text ?? ""}
-                          onChange={(e) => setLineCell(r, 3, e.target.value)} />
-                      </div>
+                    <div key={r} className="rounded-lg border border-border p-3 space-y-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">GST</span>
-                        <select
-                          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                          value={String(rateOf(row[5]?.text ?? ""))}
-                          onChange={(e) => setLineCell(r, 5, `${e.target.value}%`)}
+                        <Input
+                          className="h-11 flex-1"
+                          placeholder="Requirements"
+                          value={row[0]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 0, e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(r)}
+                          className="h-9 w-9 shrink-0 rounded-md text-muted-foreground hover:bg-muted flex items-center justify-center"
+                          title="Remove line item"
                         >
-                          {[0, 5, 12, 18, 28].map((v) => <option key={v} value={v}>{v}%</option>)}
-                        </select>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          Taxable ₹{row[4]?.text || "0.00"} · Total ₹{row[6]?.text || "0.00"}
-                        </span>
+                          <Minus className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">HSN</span>
+                          <Input className="h-11" placeholder="HSN" value={row[1]?.text ?? ""}
+                            onChange={(e) => setLineCell(r, 1, e.target.value)} />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Unit price</span>
+                          <Input className="h-11" placeholder="Unit price" value={row[2]?.text ?? ""}
+                            onChange={(e) => setLineCell(r, 2, e.target.value)} />
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 items-end">
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Quantity</span>
+                          <Input className="h-11" placeholder="1" value={row[3]?.text ?? ""}
+                            onChange={(e) => setLineCell(r, 3, e.target.value)} />
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">GST</span>
+                          <select
+                            className="h-11 flex-1 rounded-md border border-input bg-muted/40 px-2 text-sm"
+                            value={String(rateOf(row[5]?.text ?? ""))}
+                            onChange={(e) => setLineCell(r, 5, `${e.target.value}%`)}
+                          >
+                            {[0, 5, 12, 18, 28].map((v) => <option key={v} value={v}>{v}%</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Taxable amount</span>
+                          <Input className="h-11 bg-muted/50" readOnly value={row[4]?.text || "0.00"} />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Total</span>
+                          <Input className="h-11 bg-muted/50" readOnly value={row[6]?.text || "0.00"} />
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 items-end">
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Tax type</span>
+                          <select
+                            className="h-11 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={taxType}
+                            onChange={(e) => setTaxTypes((p) => ({ ...p, [r]: e.target.value }))}
+                          >
+                            <option value="IGST">IGST</option>
+                            <option value="CGST+SGST">CGST + SGST</option>
+                          </select>
+                        </label>
+                        <div className="h-[68px] rounded-md bg-muted/50 px-3 flex items-center text-sm text-muted-foreground">
+                          {taxType === "IGST"
+                            ? `IGST ₹${money(gstAmount)}`
+                            : `CGST ₹${money(gstAmount / 2)} · SGST ₹${money(gstAmount / 2)}`}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="w-full h-11 rounded-md border border-border bg-muted/30 hover:bg-muted text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <Plus className="h-4 w-4" /> Add line item
+                </button>
+
+                <div className="rounded-md bg-muted/60 px-3 py-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between"><span>Taxable Value</span><span>₹{money(gstTotals.taxable)}</span></div>
+                  <div className="flex justify-between"><span>GST</span><span>₹{money(gstTotals.gst)}</span></div>
+                  <div className="flex justify-between font-semibold"><span>Grand Total</span><span>₹{money(gstTotals.total)}</span></div>
+                </div>
               </div>
             )}
             {pageNumbers.map((pn) => {
