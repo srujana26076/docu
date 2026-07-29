@@ -160,15 +160,58 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   };
   const selCell = selectedTable && selectedCell ? selectedTable.cells[selectedCell.r]?.[selectedCell.c] : null;
 
-  function insertTable(rows: number, cols: number) {
+  function insertInvoiceTable() {
     if (!pageSizes.length) return;
-    // insert on page 1 centered-ish
-    const t = makeTable(1, rows, cols, 60, 120);
+    const size = pageSizes[0];
+    // Place below existing page-1 content so it never overlaps the title/header.
+    const pageFields = fields.filter((f) => f.page === 1);
+    const lowestY = pageFields.length ? Math.min(...pageFields.map((f) => f.y)) : size.hPt * 0.35;
+    const existing = tables.filter((t) => t.page === 1);
+    const belowTables = existing.length
+      ? Math.max(...existing.map((t) => t.y + t.rowHeights.reduce((a, b) => a + b, 0))) + 20
+      : 0;
+    const top = Math.min(Math.max(size.hPt - lowestY + 24, belowTables), size.hPt - 140);
+    const t = makeTable(1, 5, 7, 30, top);
+    t.colWidths = INVOICE_COL_WIDTHS.slice();
+    t.cells = t.cells.map((row, r) =>
+      row.map((cell, c) => (r === 0 ? { ...cell, text: INVOICE_HEADERS[c], bold: true, bg: "#f1f5f9", hAlign: "center" as const } : cell)),
+    );
+    // seed GST rate on data rows
+    t.cells = t.cells.map((row, r) => (r === 0 ? row : recalcRow(row.map((cell, c) => (c === 5 ? { ...cell, text: "18%" } : cell)))));
     setTables((arr) => [...arr, t]);
     setSelectedTableId(t.id);
-    setSelectedCell({ r: 0, c: 0 });
-    toast.success(`Inserted ${rows}×${cols} table`);
+    setSelectedCell({ r: 1, c: 0 });
+    setInsertOpen(false);
+    toast.success("Inserted invoice table");
   }
+
+  // ---- Left-panel GST calculation, driven directly by the invoice table ----
+  const invoiceTable = tables.find(isInvoiceTable) ?? null;
+  const setLineCell = (rowIdx: number, colIdx: number, value: string) => {
+    if (!invoiceTable) return;
+    updateTable(invoiceTable.id, (t) => {
+      const cells = t.cells.map((row) => row.slice());
+      cells[rowIdx][colIdx] = { ...cells[rowIdx][colIdx], text: value };
+      cells[rowIdx] = recalcRow(cells[rowIdx]);
+      return { ...t, cells };
+    });
+  };
+  const addLineItem = () => {
+    if (!invoiceTable) return;
+    updateTable(invoiceTable.id, (t) => {
+      const row = Array.from({ length: 7 }, defaultCell);
+      row[5] = { ...row[5], text: "18%" };
+      return { ...t, cells: [...t.cells, recalcRow(row)], rowHeights: [...t.rowHeights, t.rowHeights[1] ?? 24] };
+    });
+  };
+  const removeLineItem = (rowIdx: number) => {
+    if (!invoiceTable || invoiceTable.cells.length <= 2) return;
+    updateTable(invoiceTable.id, (t) => ({
+      ...t,
+      cells: t.cells.filter((_, i) => i !== rowIdx),
+      rowHeights: t.rowHeights.filter((_, i) => i !== rowIdx),
+    }));
+  };
   function addRow(after = true) {
     if (!selectedTable) return;
     const idx = after ? (selectedCell?.r ?? selectedTable.cells.length - 1) + 1 : (selectedCell?.r ?? 0);
