@@ -12,7 +12,34 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
-import { TableOverlayView, TableGridPicker, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
+import { TableOverlayView, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
+
+// ---- invoice table config -------------------------------------------------
+const INVOICE_HEADERS = ["Requirements", "HSN", "Unit price", "Quantity", "Taxable amount", "GST(18%)", "Total (₹)"];
+const INVOICE_COL_WIDTHS = [130, 50, 65, 55, 85, 75, 80];
+const num = (s: string) => {
+  const n = parseFloat((s || "").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+const money = (n: number) => n.toFixed(2);
+function rateOf(text: string) {
+  const m = /([\d.]+)\s*%/.exec(text || "");
+  return m ? parseFloat(m[1]) : 18;
+}
+/** Recompute taxable / gst / total columns for one row (cols 4,5,6). */
+function recalcRow(row: TableCell[]): TableCell[] {
+  const r = row.slice();
+  const taxable = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
+  const rate = rateOf(r[5]?.text ?? "");
+  const gst = (taxable * rate) / 100;
+  if (r[4]) r[4] = { ...r[4], text: money(taxable) };
+  if (r[5]) r[5] = { ...r[5], text: `${rate}% (${money(gst)})` };
+  if (r[6]) r[6] = { ...r[6], text: money(taxable + gst) };
+  return r;
+}
+function isInvoiceTable(t: TableData) {
+  return t.colWidths.length === 7 && (t.cells[0]?.[0]?.text ?? "") === "Requirements";
+}
 
 // ---- pdfjs lazy loader ----------------------------------------------------
 type PdfJsLib = typeof import("pdfjs-dist");
@@ -133,15 +160,58 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   };
   const selCell = selectedTable && selectedCell ? selectedTable.cells[selectedCell.r]?.[selectedCell.c] : null;
 
-  function insertTable(rows: number, cols: number) {
+  function insertInvoiceTable() {
     if (!pageSizes.length) return;
-    // insert on page 1 centered-ish
-    const t = makeTable(1, rows, cols, 60, 120);
+    const size = pageSizes[0];
+    // Place below existing page-1 content so it never overlaps the title/header.
+    const pageFields = fields.filter((f) => f.page === 1);
+    const lowestY = pageFields.length ? Math.min(...pageFields.map((f) => f.y)) : size.hPt * 0.35;
+    const existing = tables.filter((t) => t.page === 1);
+    const belowTables = existing.length
+      ? Math.max(...existing.map((t) => t.y + t.rowHeights.reduce((a, b) => a + b, 0))) + 20
+      : 0;
+    const top = Math.min(Math.max(size.hPt - lowestY + 24, belowTables), size.hPt - 140);
+    const t = makeTable(1, 5, 7, 30, top);
+    t.colWidths = INVOICE_COL_WIDTHS.slice();
+    t.cells = t.cells.map((row, r) =>
+      row.map((cell, c) => (r === 0 ? { ...cell, text: INVOICE_HEADERS[c], bold: true, bg: "#f1f5f9", hAlign: "center" as const } : cell)),
+    );
+    // seed GST rate on data rows
+    t.cells = t.cells.map((row, r) => (r === 0 ? row : recalcRow(row.map((cell, c) => (c === 5 ? { ...cell, text: "18%" } : cell)))));
     setTables((arr) => [...arr, t]);
     setSelectedTableId(t.id);
-    setSelectedCell({ r: 0, c: 0 });
-    toast.success(`Inserted ${rows}×${cols} table`);
+    setSelectedCell({ r: 1, c: 0 });
+    setInsertOpen(false);
+    toast.success("Inserted invoice table");
   }
+
+  // ---- Left-panel GST calculation, driven directly by the invoice table ----
+  const invoiceTable = tables.find(isInvoiceTable) ?? null;
+  const setLineCell = (rowIdx: number, colIdx: number, value: string) => {
+    if (!invoiceTable) return;
+    updateTable(invoiceTable.id, (t) => {
+      const cells = t.cells.map((row) => row.slice());
+      cells[rowIdx][colIdx] = { ...cells[rowIdx][colIdx], text: value };
+      cells[rowIdx] = recalcRow(cells[rowIdx]);
+      return { ...t, cells };
+    });
+  };
+  const addLineItem = () => {
+    if (!invoiceTable) return;
+    updateTable(invoiceTable.id, (t) => {
+      const row = Array.from({ length: 7 }, defaultCell);
+      row[5] = { ...row[5], text: "18%" };
+      return { ...t, cells: [...t.cells, recalcRow(row)], rowHeights: [...t.rowHeights, t.rowHeights[1] ?? 24] };
+    });
+  };
+  const removeLineItem = (rowIdx: number) => {
+    if (!invoiceTable || invoiceTable.cells.length <= 2) return;
+    updateTable(invoiceTable.id, (t) => ({
+      ...t,
+      cells: t.cells.filter((_, i) => i !== rowIdx),
+      rowHeights: t.rowHeights.filter((_, i) => i !== rowIdx),
+    }));
+  };
   function addRow(after = true) {
     if (!selectedTable) return;
     const idx = after ? (selectedCell?.r ?? selectedTable.cells.length - 1) + 1 : (selectedCell?.r ?? 0);
@@ -580,11 +650,13 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             Insert ▾
           </Button>
           {insertOpen && (
-            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg p-3">
-              <div className="flex items-center gap-2 px-1 pb-2 text-sm font-medium">
-                <TableIcon className="h-4 w-4" /> Table
-              </div>
-              <TableGridPicker onPick={(r, c) => insertTable(r, c)} onClose={() => setInsertOpen(false)} />
+            <div className="absolute z-50 top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg p-1 min-w-[220px]">
+              <button
+                onClick={insertInvoiceTable}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-muted text-left"
+              >
+                <TableIcon className="h-4 w-4" /> Table (invoice, 7 columns)
+              </button>
             </div>
           )}
         </div>
@@ -615,6 +687,50 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             </div>
           </div>
           <div className="flex-1 overflow-auto">
+            {invoiceTable && (
+              <div className="border-b border-border bg-muted/20">
+                <div className="px-4 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground flex items-center justify-between">
+                  GST CALCULATION
+                  <Button size="sm" variant="outline" className="h-7" onClick={addLineItem}>
+                    <Plus className="h-3 w-3 mr-1" />Add line item
+                  </Button>
+                </div>
+                {invoiceTable.cells.slice(1).map((row, i) => {
+                  const r = i + 1;
+                  return (
+                    <div key={r} className="px-4 py-3 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
+                        ITEM {r}
+                        <button className="text-destructive hover:underline" onClick={() => removeLineItem(r)}>Remove</button>
+                      </div>
+                      <Input className="h-8" placeholder="Requirements" value={row[0]?.text ?? ""}
+                        onChange={(e) => setLineCell(r, 0, e.target.value)} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input className="h-8" placeholder="HSN" value={row[1]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 1, e.target.value)} />
+                        <Input className="h-8" placeholder="Unit price" value={row[2]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 2, e.target.value)} />
+                        <Input className="h-8" placeholder="Qty" value={row[3]?.text ?? ""}
+                          onChange={(e) => setLineCell(r, 3, e.target.value)} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">GST</span>
+                        <select
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                          value={String(rateOf(row[5]?.text ?? ""))}
+                          onChange={(e) => setLineCell(r, 5, `${e.target.value}%`)}
+                        >
+                          {[0, 5, 12, 18, 28].map((v) => <option key={v} value={v}>{v}%</option>)}
+                        </select>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          Taxable ₹{row[4]?.text || "0.00"} · Total ₹{row[6]?.text || "0.00"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {pageNumbers.map((pn) => {
               const list = fieldsByPage.get(pn) ?? [];
               return (
