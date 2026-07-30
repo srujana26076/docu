@@ -826,7 +826,13 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 </div>
               </div>
             )}
-            {pageNumbers.map((pn) => {
+            {doc.folder === "invoice" && !invoiceTable && (
+              <div className="px-4 py-6 text-sm text-muted-foreground">
+                Use <span className="font-medium text-foreground">Insert → Table</span> to add the invoice
+                table, then edit line items here.
+              </div>
+            )}
+            {doc.folder !== "invoice" && pageNumbers.map((pn) => {
               const list = fieldsByPage.get(pn) ?? [];
               return (
                 <div key={pn}>
