@@ -27,11 +27,18 @@ function rateOf(text: string) {
   return m ? parseFloat(m[1]) : 18;
 }
 /** Recompute taxable / gst / total columns for one row (cols 4,5,6). */
-function recalcRow(row: TableCell[]): TableCell[] {
+function recalcRow(row: TableCell[], mode: "exclusive" | "inclusive" = "exclusive"): TableCell[] {
   const r = row.slice();
-  const taxable = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
+  const amount = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
   const rate = rateOf(r[5]?.text ?? "");
-  const gst = (taxable * rate) / 100;
+  let taxable: number, gst: number;
+  if (mode === "inclusive") {
+    taxable = amount / (1 + rate / 100);
+    gst = amount - taxable;
+  } else {
+    taxable = amount;
+    gst = (taxable * rate) / 100;
+  }
   if (r[4]) r[4] = { ...r[4], text: money(taxable) };
   if (r[5]) r[5] = { ...r[5], text: `${rate}% (${money(gst)})` };
   if (r[6]) r[6] = { ...r[6], text: money(taxable + gst) };
