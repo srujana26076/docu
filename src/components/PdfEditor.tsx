@@ -27,11 +27,18 @@ function rateOf(text: string) {
   return m ? parseFloat(m[1]) : 18;
 }
 /** Recompute taxable / gst / total columns for one row (cols 4,5,6). */
-function recalcRow(row: TableCell[]): TableCell[] {
+function recalcRow(row: TableCell[], mode: "exclusive" | "inclusive" = "exclusive"): TableCell[] {
   const r = row.slice();
-  const taxable = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
+  const amount = num(r[2]?.text ?? "") * num(r[3]?.text ?? "");
   const rate = rateOf(r[5]?.text ?? "");
-  const gst = (taxable * rate) / 100;
+  let taxable: number, gst: number;
+  if (mode === "inclusive") {
+    taxable = amount / (1 + rate / 100);
+    gst = amount - taxable;
+  } else {
+    taxable = amount;
+    gst = (taxable * rate) / 100;
+  }
   if (r[4]) r[4] = { ...r[4], text: money(taxable) };
   if (r[5]) r[5] = { ...r[5], text: `${rate}% (${money(gst)})` };
   if (r[6]) r[6] = { ...r[6], text: money(taxable + gst) };
@@ -202,16 +209,24 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     updateTable(invoiceTable.id, (t) => {
       const cells = t.cells.map((row) => row.slice());
       cells[rowIdx][colIdx] = { ...cells[rowIdx][colIdx], text: value };
-      cells[rowIdx] = recalcRow(cells[rowIdx]);
+      cells[rowIdx] = recalcRow(cells[rowIdx], gstMode);
       return { ...t, cells };
     });
+  };
+  const changeGstMode = (m: "exclusive" | "inclusive") => {
+    setGstMode(m);
+    if (!invoiceTable) return;
+    updateTable(invoiceTable.id, (t) => ({
+      ...t,
+      cells: t.cells.map((row, r) => (r === 0 ? row : recalcRow(row.slice(), m))),
+    }));
   };
   const addLineItem = () => {
     if (!invoiceTable) return;
     updateTable(invoiceTable.id, (t) => {
       const row = Array.from({ length: 7 }, defaultCell);
       row[5] = { ...row[5], text: "18%" };
-      return { ...t, cells: [...t.cells, recalcRow(row)], rowHeights: [...t.rowHeights, t.rowHeights[1] ?? 24] };
+      return { ...t, cells: [...t.cells, recalcRow(row, gstMode)], rowHeights: [...t.rowHeights, t.rowHeights[1] ?? 24] };
     });
   };
   const removeLineItem = (rowIdx: number) => {
@@ -707,7 +722,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setGstMode(m)}
+                      onClick={() => changeGstMode(m)}
                       className={`h-11 rounded-md border text-sm font-medium capitalize transition-colors ${
                         gstMode === m
                           ? "bg-primary text-primary-foreground border-primary"
@@ -832,7 +847,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                 table, then edit line items here.
               </div>
             )}
-            {doc.folder !== "invoice" && pageNumbers.map((pn) => {
+            {pageNumbers.map((pn) => {
               const list = fieldsByPage.get(pn) ?? [];
               return (
                 <div key={pn}>
