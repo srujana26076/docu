@@ -48,6 +48,64 @@ function isInvoiceTable(t: TableData) {
   return t.colWidths.length === 7 && (t.cells[0]?.[0]?.text ?? "") === "Requirements";
 }
 
+// ---- grand total / words rows --------------------------------------------
+const TOTAL_LABEL = "Total (Inclusive of taxes):";
+const WORDS_LABEL = "Total amount in words:";
+const isSummaryRow = (row: TableCell[]) => {
+  const t = row?.[0]?.text ?? "";
+  return t.startsWith(TOTAL_LABEL) || t.startsWith(WORDS_LABEL);
+};
+/** Data (line item) rows only — excludes header row and summary rows. */
+function lineRowsOf(t: TableData | null) {
+  if (!t) return [] as { row: TableCell[]; index: number }[];
+  return t.cells
+    .map((row, index) => ({ row, index }))
+    .filter(({ row, index }) => index > 0 && !isSummaryRow(row));
+}
+const ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+  "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+function twoDigits(n: number): string {
+  if (n < 20) return ONES[n];
+  return (TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "")).trim();
+}
+function inWords(n: number): string {
+  const rupees = Math.floor(Math.abs(n));
+  const paise = Math.round((Math.abs(n) - rupees) * 100);
+  if (rupees === 0 && paise === 0) return "zero rupees only";
+  const parts: string[] = [];
+  const push = (v: number, label: string) => { if (v) parts.push(`${twoDigits(v)} ${label}`); };
+  push(Math.floor(rupees / 10000000), "crore");
+  push(Math.floor((rupees / 100000) % 100), "lakh");
+  push(Math.floor((rupees / 1000) % 100), "thousand");
+  push(Math.floor((rupees / 100) % 10), "hundred");
+  const rest = rupees % 100;
+  if (rest) parts.push(twoDigits(rest));
+  let s = parts.join(" ") + " rupees";
+  if (paise) s += ` and ${twoDigits(paise)} paise`;
+  return s + " only";
+}
+/** Ensure the invoice table ends with a live Grand Total row + amount-in-words row. */
+function withTotalRows(t: TableData): TableData {
+  const lines = lineRowsOf(t);
+  const total = lines.reduce((a, { row }) => a + num(row[6]?.text ?? ""), 0);
+  const cells = [t.cells[0], ...lines.map(({ row }) => row)];
+  const rowHeights = [t.rowHeights[0] ?? 24, ...lines.map(({ index }) => t.rowHeights[index] ?? 24)];
+  const blank = (text = "") => ({ ...defaultCell(), text });
+  const totalRow = Array.from({ length: 7 }, (_, c) =>
+    c === 0
+      ? { ...defaultCell(), text: TOTAL_LABEL, bold: true }
+      : c === 6
+        ? { ...defaultCell(), text: `₹${money(total)}`, bold: true, hAlign: "right" as const }
+        : blank(),
+  );
+  const wordsRow = Array.from({ length: 7 }, (_, c) =>
+    c === 0 ? { ...defaultCell(), text: `${WORDS_LABEL} ${inWords(total)}`, italic: true } : blank(),
+  );
+  const h = t.rowHeights[1] ?? 24;
+  return { ...t, cells: [...cells, totalRow, wordsRow], rowHeights: [...rowHeights, h, h] };
+}
+
 // ---- pdfjs lazy loader ----------------------------------------------------
 type PdfJsLib = typeof import("pdfjs-dist");
 let pdfjsLib: PdfJsLib | null = null;
@@ -185,7 +243,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     );
     // seed GST rate on data rows
     t.cells = t.cells.map((row, r) => (r === 0 ? row : recalcRow(row.map((cell, c) => (c === 5 ? { ...cell, text: "18%" } : cell)))));
-    setTables((arr) => [...arr, t]);
+    setTables((arr) => [...arr, withTotalRows(t)]);
     setSelectedTableId(t.id);
     setSelectedCell({ r: 1, c: 0 });
     setInsertOpen(false);
@@ -196,8 +254,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   const invoiceTable = tables.find(isInvoiceTable) ?? null;
   const [gstMode, setGstMode] = useState<"exclusive" | "inclusive">("exclusive");
   const [taxTypes, setTaxTypes] = useState<Record<number, string>>({});
-  const gstTotals = (invoiceTable?.cells.slice(1) ?? []).reduce(
-    (acc, row) => {
+  const invoiceLineRows = lineRowsOf(invoiceTable);
+  const gstTotals = invoiceLineRows.reduce(
+    (acc, { row }) => {
       const taxable = num(row[4]?.text ?? "");
       const total = num(row[6]?.text ?? "");
       return { taxable: acc.taxable + taxable, gst: acc.gst + (total - taxable), total: acc.total + total };
@@ -210,32 +269,39 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const cells = t.cells.map((row) => row.slice());
       cells[rowIdx][colIdx] = { ...cells[rowIdx][colIdx], text: value };
       cells[rowIdx] = recalcRow(cells[rowIdx], gstMode);
-      return { ...t, cells };
+      return withTotalRows({ ...t, cells });
     });
   };
   const changeGstMode = (m: "exclusive" | "inclusive") => {
     setGstMode(m);
     if (!invoiceTable) return;
-    updateTable(invoiceTable.id, (t) => ({
-      ...t,
-      cells: t.cells.map((row, r) => (r === 0 ? row : recalcRow(row.slice(), m))),
-    }));
+    updateTable(invoiceTable.id, (t) =>
+      withTotalRows({
+        ...t,
+        cells: t.cells.map((row, r) => (r === 0 || isSummaryRow(row) ? row : recalcRow(row.slice(), m))),
+      }),
+    );
   };
   const addLineItem = () => {
     if (!invoiceTable) return;
     updateTable(invoiceTable.id, (t) => {
       const row = Array.from({ length: 7 }, defaultCell);
       row[5] = { ...row[5], text: "18%" };
-      return { ...t, cells: [...t.cells, recalcRow(row, gstMode)], rowHeights: [...t.rowHeights, t.rowHeights[1] ?? 24] };
+      const lines = lineRowsOf(t);
+      const cells = [t.cells[0], ...lines.map((l) => l.row), recalcRow(row, gstMode)];
+      const rowHeights = [t.rowHeights[0] ?? 24, ...lines.map((l) => t.rowHeights[l.index] ?? 24), t.rowHeights[1] ?? 24];
+      return withTotalRows({ ...t, cells, rowHeights });
     });
   };
   const removeLineItem = (rowIdx: number) => {
-    if (!invoiceTable || invoiceTable.cells.length <= 2) return;
-    updateTable(invoiceTable.id, (t) => ({
-      ...t,
-      cells: t.cells.filter((_, i) => i !== rowIdx),
-      rowHeights: t.rowHeights.filter((_, i) => i !== rowIdx),
-    }));
+    if (!invoiceTable || lineRowsOf(invoiceTable).length <= 1) return;
+    updateTable(invoiceTable.id, (t) =>
+      withTotalRows({
+        ...t,
+        cells: t.cells.filter((_, i) => i !== rowIdx),
+        rowHeights: t.rowHeights.filter((_, i) => i !== rowIdx),
+      }),
+    );
   };
   function addRow(after = true) {
     if (!selectedTable) return;
@@ -739,8 +805,8 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                     : "GST is included in the entered amount."}
                 </p>
 
-                {invoiceTable.cells.slice(1).map((row, i) => {
-                  const r = i + 1;
+                {invoiceLineRows.map(({ row, index }) => {
+                  const r = index;
                   const taxType = taxTypes[r] ?? "IGST";
                   const gstAmount = num(row[6]?.text ?? "") - num(row[4]?.text ?? "");
                   return (
