@@ -558,8 +558,16 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         const rh = t.rowHeights[r];
         let xLeft = t.x;
         for (let c = 0; c < t.cells[r].length; c++) {
-          const cw = t.colWidths[c];
           const cell = t.cells[r][c];
+          let covered = false;
+          for (let i = 0; i < c; i++) {
+            const s = t.cells[r][i]?.colSpan ?? 1;
+            if (s > 1 && i + s > c) { covered = true; break; }
+          }
+          if (covered) { xLeft += t.colWidths[c]; continue; }
+          const span = Math.min(cell.colSpan ?? 1, t.cells[r].length - c);
+          let cw = 0;
+          for (let k = 0; k < span; k++) cw += t.colWidths[c + k] ?? 0;
           const bg = hexToRgb(cell.bg || "#ffffff");
           p.drawRectangle({ x: xLeft, y: yTop - rh, width: cw, height: rh, color: rgb(bg.r, bg.g, bg.b) });
           // text
@@ -603,11 +611,24 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           p.drawLine({ start: { x: t.x, y: hy }, end: { x: t.x + totalW, y: hy }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
           if (r < t.rowHeights.length) hy -= t.rowHeights[r];
         }
-        // vertical lines
-        let vx = t.x;
-        for (let c = 0; c <= t.colWidths.length; c++) {
-          p.drawLine({ start: { x: vx, y: topY }, end: { x: vx, y: topY - totalH }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
-          if (c < t.colWidths.length) vx += t.colWidths[c];
+        // vertical lines, drawn per row so merged (colSpan) cells have no inner dividers
+        let ry = topY;
+        for (let r = 0; r < t.rowHeights.length; r++) {
+          const rh = t.rowHeights[r];
+          const row = t.cells[r] ?? [];
+          const hidden = new Set<number>();
+          for (let i = 0; i < row.length; i++) {
+            const s = row[i]?.colSpan ?? 1;
+            for (let k = 1; k < s; k++) hidden.add(i + k);
+          }
+          let vx = t.x;
+          for (let c = 0; c <= t.colWidths.length; c++) {
+            if (!hidden.has(c)) {
+              p.drawLine({ start: { x: vx, y: ry }, end: { x: vx, y: ry - rh }, thickness: bw, color: rgb(bc.r, bc.g, bc.b) });
+            }
+            if (c < t.colWidths.length) vx += t.colWidths[c];
+          }
+          ry -= rh;
         }
       }
     }
