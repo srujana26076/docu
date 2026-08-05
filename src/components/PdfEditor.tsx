@@ -805,8 +805,8 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
                     : "GST is included in the entered amount."}
                 </p>
 
-                {invoiceTable.cells.slice(1).map((row, i) => {
-                  const r = i + 1;
+                {invoiceLineRows.map(({ row, index }) => {
+                  const r = index;
                   const taxType = taxTypes[r] ?? "IGST";
                   const gstAmount = num(row[6]?.text ?? "") - num(row[4]?.text ?? "");
                   return (
