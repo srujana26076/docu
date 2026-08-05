@@ -12,6 +12,7 @@ export interface TableCell {
   hAlign?: "left" | "center" | "right";
   vAlign?: "top" | "middle" | "bottom";
   padding?: number;
+  colSpan?: number;
 }
 export interface TableData {
   id: string;
@@ -161,6 +162,13 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
       <div style={{ display: "grid", gridTemplateColumns: table.colWidths.map((w) => `${w * scale}px`).join(" "), gridTemplateRows: table.rowHeights.map((h) => `${h * scale}px`).join(" ") }}>
         {table.cells.map((row, r) =>
           row.map((cell, c) => {
+            let covered = false;
+            for (let i = 0; i < c; i++) {
+              const s = row[i]?.colSpan ?? 1;
+              if (s > 1 && i + s > c) { covered = true; break; }
+            }
+            if (covered) return null;
+            const span = Math.min(cell.colSpan ?? 1, row.length - c);
             const isSel = selectedCell?.r === r && selectedCell?.c === c && selected;
             return (
               <div
@@ -172,6 +180,7 @@ export function TableOverlayView({ table, scale, selected, selectedCell, onSelec
                 }}
                 style={{
                   border,
+                  gridColumn: span > 1 ? `span ${span}` : undefined,
                   background: cell.bg || "#ffffff",
                   padding: (cell.padding ?? 4) * scale,
                   display: "flex",
