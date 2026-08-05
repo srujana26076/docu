@@ -100,7 +100,9 @@ function withTotalRows(t: TableData): TableData {
         : blank(),
   );
   const wordsRow = Array.from({ length: 7 }, (_, c) =>
-    c === 0 ? { ...defaultCell(), text: `${WORDS_LABEL} ${inWords(total)}`, italic: true } : blank(),
+    c === 0
+      ? { ...defaultCell(), text: `${WORDS_LABEL} ${inWords(total)}`, italic: true, colSpan: 7 }
+      : blank(),
   );
   const h = t.rowHeights[1] ?? 24;
   return { ...t, cells: [...cells, totalRow, wordsRow], rowHeights: [...rowHeights, h, h] };
