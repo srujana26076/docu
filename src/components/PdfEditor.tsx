@@ -550,7 +550,6 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       if (!p) continue;
       const pageH = p.getHeight();
       const totalW = t.colWidths.reduce((a, b) => a + b, 0);
-      void 0; const _unusedTotalH = t.rowHeights.reduce((a, b) => a + b, 0);
       const bc = hexToRgb(t.borderColor);
       // Cell backgrounds and text
       let yTop = pageH - t.y; // top edge in pdf coords
