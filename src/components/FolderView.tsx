@@ -83,20 +83,6 @@ export function FolderView({ folder }: { folder: Folder }) {
     }
   }
 
-  async function handleDeleteLegacy(doc: DocRow) {
-    if (doc.is_default) return toast.error("Default files cannot be deleted");
-    if (!confirm(`Delete "${doc.name}"?`)) return;
-    try {
-      await deleteDocument(doc);
-      toast.success("Deleted");
-      qc.invalidateQueries({ queryKey: ["folder", folder] });
-      qc.invalidateQueries({ queryKey: ["recent"] });
-      qc.invalidateQueries({ queryKey: ["ledger-entries"] });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Delete failed");
-    }
-  }
-
   const uploadLabel = folder === "invoice" ? "Upload Invoice"
     : folder === "template" ? "Upload Template"
     : folder === "quotation" ? "Upload Quotation"
