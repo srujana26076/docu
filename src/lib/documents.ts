@@ -73,3 +73,29 @@ export async function renameDocument(id: string, name: string) {
   const { error } = await supabase.from("documents").update({ name, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw error;
 }
+
+/** Signed, shareable URL to the stored PDF (valid 7 days). */
+export async function createShareLink(doc: DocRow, days = 7): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .createSignedUrl(doc.storage_path, days * 24 * 60 * 60, { download: `${doc.name}.pdf` });
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/** Grand total taken from the invoice table's "Total (Inclusive of taxes):" row. */
+export function invoiceTotal(doc: DocRow): string {
+  try {
+    const tables = (doc.tables_json ?? []) as any[];
+    for (const t of tables) {
+      for (const row of t?.cells ?? []) {
+        const isTotal = row.some((c: any) => typeof c?.text === "string" && c.text.startsWith("Total (Inclusive"));
+        if (isTotal) {
+          const last = row[row.length - 1]?.text?.trim();
+          if (last) return last;
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return "";
+}
