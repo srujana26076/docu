@@ -26,7 +26,7 @@ interface LedgerEntry {
 // Chart of accounts classification
 const REVENUE = ["Sales Revenue", "Service Revenue", "Other Income"];
 const EXPENSES = ["Office Expense", "Salaries", "Rent", "Utilities", "Misc Expense"];
-const ASSETS = ["Cash", "Bank", "Accounts Receivable", "Inventory"];
+const ASSETS = ["Cash", "Bank", "Cash/Bank", "Accounts Receivable", "Inventory"];
 const LIABILITIES = ["Accounts Payable", "GST Payable", "Loans Payable"];
 
 function classify(account: string): "revenue" | "expense" | "asset" | "liability" | "equity" {
@@ -122,13 +122,16 @@ function PLTab() {
   const [start, setStart] = useState(monthStart);
   const [end, setEnd] = useState(today);
 
-  const { revenue, expense, byAccount } = useMemo(() => {
+  const { revenue, expense, byAccount, realized, pending } = useMemo(() => {
     const rows = (data ?? []).filter((e) => e.entry_date >= start && e.entry_date <= end);
     let revenue = 0, expense = 0;
+    let realized = 0, receivable = 0;
     const byAccount: Record<string, { type: string; amount: number }> = {};
     for (const e of rows) {
       const cls = classify(e.account);
       const amt = Number(e.amount);
+      if (/^cash\/bank$|^cash$|^bank$/i.test(e.account)) realized += e.entry_type === "debit" ? amt : -amt;
+      if (/receivable/i.test(e.account)) receivable += e.entry_type === "debit" ? amt : -amt;
       if (cls === "revenue") {
         const v = e.entry_type === "credit" ? amt : -amt;
         revenue += v;
@@ -139,7 +142,7 @@ function PLTab() {
         byAccount[e.account] = { type: "Expense", amount: (byAccount[e.account]?.amount ?? 0) + v };
       }
     }
-    return { revenue, expense, byAccount };
+    return { revenue, expense, byAccount, realized, pending: receivable };
   }, [data, start, end]);
 
   const net = revenue - expense;
@@ -154,6 +157,10 @@ function PLTab() {
         <SummaryCard label="Revenue" value={revenue} />
         <SummaryCard label="Expenses" value={expense} />
         <SummaryCard label="Net Profit" value={net} accent={net >= 0 ? "positive" : "negative"} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SummaryCard label="Realized (Cash/Bank received)" value={realized} accent="positive" />
+        <SummaryCard label="Pending (unpaid receivables)" value={pending} />
       </div>
       <Card className="p-0 overflow-hidden">
         <Table>

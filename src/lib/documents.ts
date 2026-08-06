@@ -21,6 +21,8 @@ export interface DocRow {
   invoice_number?: string | null;
   invoice_date?: string | null;
   tables_json?: any;
+  payment_status?: "unpaid" | "paid" | "overdue" | null;
+  due_date?: string | null;
 }
 
 export async function listDocuments(folder?: Folder): Promise<DocRow[]> {
@@ -98,4 +100,48 @@ export function invoiceTotal(doc: DocRow): string {
     }
   } catch { /* ignore */ }
   return "";
+}
+
+export type PaymentStatus = "paid" | "unpaid" | "overdue";
+
+/** Client-side status: unpaid invoices past their due date read as overdue. */
+export function effectivePaymentStatus(doc: DocRow): PaymentStatus {
+  const s = (doc.payment_status ?? "unpaid") as PaymentStatus;
+  if (s === "paid") return "paid";
+  const today = new Date().toISOString().slice(0, 10);
+  if (doc.due_date && doc.due_date < today) return "overdue";
+  return "unpaid";
+}
+
+/** Numeric grand total for a document, from its table or its receivable ledger entry. */
+export async function invoiceAmount(doc: DocRow): Promise<number> {
+  const raw = invoiceTotal(doc).replace(/[^0-9.]/g, "");
+  const n = parseFloat(raw);
+  if (!isNaN(n) && n > 0) return n;
+  const { data } = await supabase
+    .from("ledger_entries" as any)
+    .select("amount,account")
+    .eq("document_id", doc.id);
+  const rec = (data ?? []).find((r: any) => r.account === "Accounts Receivable");
+  return rec ? Number((rec as any).amount) : 0;
+}
+
+/** Mark an invoice paid and record the cash receipt in the ledger. */
+export async function markInvoicePaid(doc: DocRow): Promise<number> {
+  const amount = await invoiceAmount(doc);
+  const { error } = await supabase
+    .from("documents")
+    .update({ payment_status: "paid", updated_at: new Date().toISOString() } as any)
+    .eq("id", doc.id);
+  if (error) throw error;
+  if (amount > 0) {
+    const entry_date = new Date().toISOString().slice(0, 10);
+    const description = `Payment received · Invoice ${doc.invoice_number || doc.name}`;
+    await supabase.from("ledger_entries" as any).delete().eq("description", description);
+    await supabase.from("ledger_entries" as any).insert([
+      { entry_date, account: "Cash/Bank", entry_type: "debit", amount, description, document_id: doc.id },
+      { entry_date, account: "Accounts Receivable", entry_type: "credit", amount, description, document_id: doc.id },
+    ]);
+  }
+  return amount;
 }

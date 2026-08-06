@@ -1,10 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { listDocuments, uploadPdf, deleteDocument, downloadPdfBytes, createShareLink, invoiceTotal, type DocRow, type Folder, folderMeta } from "@/lib/documents";
+import { listDocuments, uploadPdf, deleteDocument, downloadPdfBytes, createShareLink, invoiceTotal, markInvoicePaid, effectivePaymentStatus, type DocRow, type Folder, folderMeta } from "@/lib/documents";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileText, FileUp, Trash2, Download, Pencil, Share2, MessageCircle, Mail } from "lucide-react";
+import { FileText, FileUp, Trash2, Download, Pencil, Share2, MessageCircle, Mail, CheckCircle2 } from "lucide-react";
+const statusStyles: Record<string, string> = {
+  paid: "bg-emerald-100 text-emerald-800",
+  unpaid: "bg-amber-100 text-amber-800",
+  overdue: "bg-red-100 text-red-800",
+};
+
 import { toast } from "sonner";
 
 function triggerDownload(bytes: ArrayBuffer, name: string) {
@@ -83,6 +89,20 @@ export function FolderView({ folder }: { folder: Folder }) {
     }
   }
 
+  async function handleMarkPaid(doc: DocRow) {
+    try {
+      const amount = await markInvoicePaid(doc);
+      toast.success(amount > 0
+        ? `Payment of ₹${amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })} recorded for ${doc.invoice_number || doc.name}`
+        : `${doc.invoice_number || doc.name} marked as paid`);
+      qc.invalidateQueries({ queryKey: ["folder", folder] });
+      qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["ledger-entries"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not mark as paid");
+    }
+  }
+
   const uploadLabel = folder === "invoice" ? "Upload Invoice"
     : folder === "template" ? "Upload Template"
     : folder === "quotation" ? "Upload Quotation"
@@ -113,6 +133,10 @@ export function FolderView({ folder }: { folder: Folder }) {
               <div className="text-sm font-medium truncate flex items-center gap-2">
                 {d.name}
                 {d.is_default && <span className="text-[10px] uppercase tracking-wider text-accent px-1.5 py-0.5 rounded bg-accent/10">default</span>}
+                {folder === "invoice" && !d.is_default && (() => {
+                  const st = effectivePaymentStatus(d);
+                  return <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${statusStyles[st]}`}>{st}</span>;
+                })()}
               </div>
               <div className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleString()}{d.size_bytes ? ` · ${(d.size_bytes/1024).toFixed(0)} KB` : ""}</div>
             </div>
@@ -120,6 +144,11 @@ export function FolderView({ folder }: { folder: Folder }) {
               <Button size="sm" variant="default"><Pencil className="h-3.5 w-3.5 mr-1.5" />Edit</Button>
             </Link>
             <Button size="sm" variant="outline" onClick={() => handleDownload(d)}><Download className="h-3.5 w-3.5" /></Button>
+            {folder === "invoice" && !d.is_default && effectivePaymentStatus(d) !== "paid" && (
+              <Button size="sm" variant="outline" onClick={() => handleMarkPaid(d)} title="Mark as Paid">
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Mark as Paid
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" title="Share"><Share2 className="h-3.5 w-3.5" /></Button>

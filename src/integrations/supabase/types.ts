@@ -17,12 +17,14 @@ export type Database = {
       documents: {
         Row: {
           created_at: string
+          due_date: string | null
           folder: Database["public"]["Enums"]["folder_type"]
           id: string
           invoice_date: string | null
           invoice_number: string | null
           is_default: boolean
           name: string
+          payment_status: string
           size_bytes: number | null
           storage_path: string
           tables_json: Json
@@ -30,12 +32,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          due_date?: string | null
           folder: Database["public"]["Enums"]["folder_type"]
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           is_default?: boolean
           name: string
+          payment_status?: string
           size_bytes?: number | null
           storage_path: string
           tables_json?: Json
@@ -43,12 +47,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          due_date?: string | null
           folder?: Database["public"]["Enums"]["folder_type"]
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           is_default?: boolean
           name?: string
+          payment_status?: string
           size_bytes?: number | null
           storage_path?: string
           tables_json?: Json
