@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { listDocuments, uploadPdf, deleteDocument, downloadPdfBytes, type DocRow, type Folder, folderMeta } from "@/lib/documents";
+import { listDocuments, uploadPdf, deleteDocument, downloadPdfBytes, createShareLink, invoiceTotal, type DocRow, type Folder, folderMeta } from "@/lib/documents";
 import { Button } from "@/components/ui/button";
-import { FileText, FileUp, Trash2, Download, Pencil } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileText, FileUp, Trash2, Download, Pencil, Share2, MessageCircle, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 function triggerDownload(bytes: ArrayBuffer, name: string) {
@@ -63,6 +64,39 @@ export function FolderView({ folder }: { folder: Folder }) {
     }
   }
 
+  async function handleShare(doc: DocRow, via: "whatsapp" | "email") {
+    try {
+      const link = await createShareLink(doc);
+      const number = doc.invoice_number || doc.name;
+      const amount = invoiceTotal(doc);
+      const amountText = amount ? ` for ₹${amount}` : "";
+      if (via === "whatsapp") {
+        const msg = `Hi, please find your invoice ${number}${amountText}. Download here: ${link}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
+      } else {
+        const subject = `Invoice ${number} from Harsha Perfect Solutions`;
+        const body = `Hi,\n\nPlease find your invoice ${number}${amountText}.\n\nDownload here: ${link}\n\nRegards,\nHarsha Perfect Solutions`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not create share link");
+    }
+  }
+
+  async function handleDeleteLegacy(doc: DocRow) {
+    if (doc.is_default) return toast.error("Default files cannot be deleted");
+    if (!confirm(`Delete "${doc.name}"?`)) return;
+    try {
+      await deleteDocument(doc);
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["folder", folder] });
+      qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["ledger-entries"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    }
+  }
+
   const uploadLabel = folder === "invoice" ? "Upload Invoice"
     : folder === "template" ? "Upload Template"
     : folder === "quotation" ? "Upload Quotation"
@@ -100,6 +134,19 @@ export function FolderView({ folder }: { folder: Folder }) {
               <Button size="sm" variant="default"><Pencil className="h-3.5 w-3.5 mr-1.5" />Edit</Button>
             </Link>
             <Button size="sm" variant="outline" onClick={() => handleDownload(d)}><Download className="h-3.5 w-3.5" /></Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" title="Share"><Share2 className="h-3.5 w-3.5" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleShare(d, "whatsapp")}>
+                  <MessageCircle className="h-4 w-4 mr-2" />Share via WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleShare(d, "email")}>
+                  <Mail className="h-4 w-4 mr-2" />Share via Email
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" variant="outline" disabled={d.is_default} onClick={() => handleDelete(d)} title={d.is_default ? "Default files can't be deleted" : "Delete"}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
