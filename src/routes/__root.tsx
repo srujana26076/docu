@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -13,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 function NotFoundComponent() {
   return (
@@ -117,13 +119,22 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const showSearch = !pathname.startsWith("/editor");
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen w-full bg-background text-foreground">
         <AppSidebar />
-        <main className="flex-1 min-w-0">
-          <Outlet />
+        <main className="flex-1 min-w-0 flex flex-col">
+          {showSearch && (
+            <header className="sticky top-0 z-40 border-b border-border bg-background/95 px-8 py-3 backdrop-blur">
+              <GlobalSearch />
+            </header>
+          )}
+          <div className="flex-1 min-w-0">
+            <Outlet />
+          </div>
         </main>
       </div>
       <Toaster richColors position="top-right" />
