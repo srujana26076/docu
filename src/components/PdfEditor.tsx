@@ -714,6 +714,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
       qc.invalidateQueries({ queryKey: ["recent-all"] });
+      qc.invalidateQueries({ queryKey: ["document-search"] });
       qc.invalidateQueries({ queryKey: ["ledger-entries"] });
       navigate({ to: `/${folderMeta[folder].slug}` as any });
     } catch (e: any) {
@@ -729,6 +730,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       toast.success("Deleted");
       qc.invalidateQueries({ queryKey: ["folder", doc.folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["document-search"] });
       qc.invalidateQueries({ queryKey: ["ledger-entries"] });
       navigate({ to: `/${folderMeta[doc.folder].slug}` as any });
     } catch (e: any) { toast.error(e?.message ?? "Delete failed"); }
