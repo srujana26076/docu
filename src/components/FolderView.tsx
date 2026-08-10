@@ -39,6 +39,7 @@ export function FolderView({ folder }: { folder: Folder }) {
       toast.success(`Uploaded ${doc.name}`);
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["document-search"] });
       navigate({ to: "/editor/$id", params: { id: doc.id } });
     } catch (e: any) {
       toast.error(e?.message ?? "Upload failed");
@@ -64,6 +65,7 @@ export function FolderView({ folder }: { folder: Folder }) {
       toast.success("Deleted");
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
+      qc.invalidateQueries({ queryKey: ["document-search"] });
       qc.invalidateQueries({ queryKey: ["ledger-entries"] });
     } catch (e: any) {
       toast.error(e?.message ?? "Delete failed");

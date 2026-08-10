@@ -33,6 +33,25 @@ export async function listDocuments(folder?: Folder): Promise<DocRow[]> {
   return (data ?? []) as DocRow[];
 }
 
+/** Searches only persisted document rows; no local suggestions or generated results. */
+export async function searchDocuments(term: string): Promise<DocRow[]> {
+  const query = term.trim();
+  if (!query) return [];
+
+  const [byName, byInvoiceNumber] = await Promise.all([
+    supabase.from("documents").select("*").ilike("name", `%${query}%`).order("created_at", { ascending: false }),
+    supabase.from("documents").select("*").ilike("invoice_number", `%${query}%`).order("created_at", { ascending: false }),
+  ]);
+  if (byName.error) throw byName.error;
+  if (byInvoiceNumber.error) throw byInvoiceNumber.error;
+
+  const unique = new Map<string, DocRow>();
+  for (const row of [...(byName.data ?? []), ...(byInvoiceNumber.data ?? [])]) {
+    unique.set(row.id, row as DocRow);
+  }
+  return [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 export async function getDocument(id: string): Promise<DocRow> {
   const { data, error } = await supabase.from("documents").select("*").eq("id", id).single();
   if (error) throw error;

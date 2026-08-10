@@ -1,22 +1,36 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Search, FileText, X } from "lucide-react";
-import { listDocuments, folderMeta } from "@/lib/documents";
+import { searchDocuments, folderMeta } from "@/lib/documents";
+import { supabase } from "@/integrations/supabase/client";
 
 export function GlobalSearch() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [term, setTerm] = useState("");
   const [open, setOpen] = useState(false);
-  const q = useQuery({ queryKey: ["recent-all"], queryFn: () => listDocuments() });
+  const searchTerm = term.trim();
+  const q = useQuery({
+    queryKey: ["document-search", searchTerm.toLowerCase()],
+    queryFn: () => searchDocuments(searchTerm),
+    enabled: searchTerm.length > 0,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+  });
 
-  const results = useMemo(() => {
-    const t = term.trim().toLowerCase();
-    if (!t) return [];
-    return (q.data ?? []).filter((d) =>
-      d.name.toLowerCase().includes(t) || (d.invoice_number ?? "").toLowerCase().includes(t),
-    );
-  }, [term, q.data]);
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-document-search")
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["document-search"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  const results = q.data ?? [];
 
   return (
     <div className="relative w-full max-w-xl">
@@ -41,9 +55,11 @@ export function GlobalSearch() {
         </button>
       )}
 
-      {open && term.trim() && (
+      {open && searchTerm && (
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border border-border bg-popover shadow-lg">
-          {results.length === 0 ? (
+          {q.isFetching ? (
+            <div className="p-4 text-sm text-muted-foreground">Searching…</div>
+          ) : results.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground">No documents found</div>
           ) : (
             results.map((d) => (
@@ -64,7 +80,7 @@ export function GlobalSearch() {
                   {d.invoice_number ? <span className="text-muted-foreground"> · {d.invoice_number}</span> : null}
                 </span>
                 <span className="shrink-0 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-accent">
-                  {folderMeta[d.folder].title.replace(/s$/, "")}
+                  {d.folder === "offer_letter" ? "Offer Letter" : folderMeta[d.folder].title.replace(/s$/, "")}
                 </span>
               </button>
             ))
