@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import notoRegularUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
+import notoBoldUrl from "@/assets/fonts/NotoSans-Bold.ttf?url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
