@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as RecentRouteImport } from './routes/recent'
 import { Route as QuotationsRouteImport } from './routes/quotations'
 import { Route as OfferLettersRouteImport } from './routes/offer-letters'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as AccountingRouteImport } from './routes/accounting'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +31,11 @@ const TemplatesRoute = TemplatesRouteImport.update({
   path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecentRoute = RecentRouteImport.update({
   id: '/recent',
   path: '/recent',
@@ -42,6 +49,11 @@ const QuotationsRoute = QuotationsRouteImport.update({
 const OfferLettersRoute = OfferLettersRouteImport.update({
   id: '/offer-letters',
   path: '/offer-letters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvoicesRoute = InvoicesRouteImport.update({
@@ -69,9 +81,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
   '/invoices': typeof InvoicesRoute
+  '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
   '/quotations': typeof QuotationsRoute
   '/recent': typeof RecentRoute
+  '/signup': typeof SignupRoute
   '/templates': typeof TemplatesRoute
   '/upload': typeof UploadRoute
   '/editor/$id': typeof EditorIdRoute
@@ -80,9 +94,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
   '/invoices': typeof InvoicesRoute
+  '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
   '/quotations': typeof QuotationsRoute
   '/recent': typeof RecentRoute
+  '/signup': typeof SignupRoute
   '/templates': typeof TemplatesRoute
   '/upload': typeof UploadRoute
   '/editor/$id': typeof EditorIdRoute
@@ -92,9 +108,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
   '/invoices': typeof InvoicesRoute
+  '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
   '/quotations': typeof QuotationsRoute
   '/recent': typeof RecentRoute
+  '/signup': typeof SignupRoute
   '/templates': typeof TemplatesRoute
   '/upload': typeof UploadRoute
   '/editor/$id': typeof EditorIdRoute
@@ -105,9 +123,11 @@ export interface FileRouteTypes {
     | '/'
     | '/accounting'
     | '/invoices'
+    | '/login'
     | '/offer-letters'
     | '/quotations'
     | '/recent'
+    | '/signup'
     | '/templates'
     | '/upload'
     | '/editor/$id'
@@ -116,9 +136,11 @@ export interface FileRouteTypes {
     | '/'
     | '/accounting'
     | '/invoices'
+    | '/login'
     | '/offer-letters'
     | '/quotations'
     | '/recent'
+    | '/signup'
     | '/templates'
     | '/upload'
     | '/editor/$id'
@@ -127,9 +149,11 @@ export interface FileRouteTypes {
     | '/'
     | '/accounting'
     | '/invoices'
+    | '/login'
     | '/offer-letters'
     | '/quotations'
     | '/recent'
+    | '/signup'
     | '/templates'
     | '/upload'
     | '/editor/$id'
@@ -139,9 +163,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountingRoute: typeof AccountingRoute
   InvoicesRoute: typeof InvoicesRoute
+  LoginRoute: typeof LoginRoute
   OfferLettersRoute: typeof OfferLettersRoute
   QuotationsRoute: typeof QuotationsRoute
   RecentRoute: typeof RecentRoute
+  SignupRoute: typeof SignupRoute
   TemplatesRoute: typeof TemplatesRoute
   UploadRoute: typeof UploadRoute
   EditorIdRoute: typeof EditorIdRoute
@@ -163,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recent': {
       id: '/recent'
       path: '/recent'
@@ -182,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/offer-letters'
       fullPath: '/offer-letters'
       preLoaderRoute: typeof OfferLettersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invoices': {
@@ -219,9 +259,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountingRoute: AccountingRoute,
   InvoicesRoute: InvoicesRoute,
+  LoginRoute: LoginRoute,
   OfferLettersRoute: OfferLettersRoute,
   QuotationsRoute: QuotationsRoute,
   RecentRoute: RecentRoute,
+  SignupRoute: SignupRoute,
   TemplatesRoute: TemplatesRoute,
   UploadRoute: UploadRoute,
   EditorIdRoute: EditorIdRoute,

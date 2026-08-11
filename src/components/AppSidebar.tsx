@@ -1,5 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { FileText, Home, FileSpreadsheet, Briefcase, Clock, LayoutTemplate, FilePlus2, BookOpen } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { FileText, Home, FileSpreadsheet, Briefcase, Clock, LayoutTemplate, FilePlus2, BookOpen, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -15,6 +17,15 @@ const nav = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/login", replace: true });
+  }
 
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -43,8 +54,17 @@ export function AppSidebar() {
           );
         })}
       </nav>
-      <div className="px-5 py-4 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 border-t border-sidebar-border">
-        v1.0 · Lovable Cloud
+      <div className="border-t border-sidebar-border p-2">
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Sign out</span>
+        </button>
+        <div className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wider text-sidebar-foreground/40">
+          v1.0 · Lovable Cloud
+        </div>
       </div>
     </aside>
   );
