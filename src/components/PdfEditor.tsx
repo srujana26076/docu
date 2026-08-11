@@ -534,8 +534,16 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   async function bakeFrom(list: Field[]): Promise<Uint8Array> {
     if (!bytes) throw new Error("PDF not loaded");
     const out = await PDFDocument.load(bytes.slice(0));
+    out.registerFontkit(fontkit);
     const fontCache = new Map<string, any>();
-    async function getFont(family: string, bold: boolean, italic: boolean) {
+    async function getFont(family: string, bold: boolean, italic: boolean, text = "") {
+      if (needsUnicodeFont(text)) {
+        const key = bold ? "noto-bold" : "noto-regular";
+        if (!fontCache.has(key)) {
+          fontCache.set(key, await out.embedFont(await loadNoto(bold), { subset: true }));
+        }
+        return fontCache.get(key);
+      }
       const std = pdfFontFor(family, bold, italic);
       if (!fontCache.has(std)) fontCache.set(std, await out.embedFont(std));
       return fontCache.get(std);
@@ -545,7 +553,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       if (f.text === f.original) continue;
       const p = pages[f.page - 1];
       if (!p) continue;
-      const font = await getFont(f.fontFamily, f.bold, f.italic);
+      const font = await getFont(f.fontFamily, f.bold, f.italic, f.text);
       const c = hexToRgb(f.color);
       // Cover original glyph box (ascent + descent + side bleed)
       const newW = font.widthOfTextAtSize(f.text, f.fontSize);
@@ -588,7 +596,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           const bg = hexToRgb(cell.bg || "#ffffff");
           p.drawRectangle({ x: xLeft, y: yTop - rh, width: cw, height: rh, color: rgb(bg.r, bg.g, bg.b) });
           // text
-          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic);
+          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic, cell.text || "");
           const size = cell.fontSize || 11;
           const tc = hexToRgb(cell.color || "#0b1320");
           const pad = cell.padding ?? 4;
