@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -52,6 +53,7 @@ function SignupPage() {
           return;
         }
       }
+      toast.success("Account created successfully");
       navigate({ to: "/", replace: true });
     } catch {
       setError("Couldn't create your account. Please check your connection and try again.");

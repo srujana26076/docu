@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import notoRegularUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
+import notoBoldUrl from "@/assets/fonts/NotoSans-Bold.ttf?url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -166,6 +169,21 @@ function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
   const n = parseInt(m.length === 3 ? m.split("").map((c) => c + c).join("") : m, 16);
   return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
+}
+
+/** True when the string contains characters the WinAnsi standard fonts cannot encode (e.g. ₹). */
+function needsUnicodeFont(s: string) {
+  return /[^\u0000-\u00ff]/.test(s || "");
+}
+
+let notoBytesCache: { regular?: ArrayBuffer; bold?: ArrayBuffer } = {};
+async function loadNoto(bold: boolean): Promise<ArrayBuffer> {
+  const key = bold ? "bold" : "regular";
+  if (!notoBytesCache[key]) {
+    const res = await fetch(bold ? notoBoldUrl : notoRegularUrl);
+    notoBytesCache[key] = await res.arrayBuffer();
+  }
+  return notoBytesCache[key]!;
 }
 
 function pdfFontFor(family: string, bold: boolean, italic: boolean) {
@@ -516,8 +534,16 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   async function bakeFrom(list: Field[]): Promise<Uint8Array> {
     if (!bytes) throw new Error("PDF not loaded");
     const out = await PDFDocument.load(bytes.slice(0));
+    out.registerFontkit(fontkit);
     const fontCache = new Map<string, any>();
-    async function getFont(family: string, bold: boolean, italic: boolean) {
+    async function getFont(family: string, bold: boolean, italic: boolean, text = "") {
+      if (needsUnicodeFont(text)) {
+        const key = bold ? "noto-bold" : "noto-regular";
+        if (!fontCache.has(key)) {
+          fontCache.set(key, await out.embedFont(await loadNoto(bold), { subset: true }));
+        }
+        return fontCache.get(key);
+      }
       const std = pdfFontFor(family, bold, italic);
       if (!fontCache.has(std)) fontCache.set(std, await out.embedFont(std));
       return fontCache.get(std);
@@ -527,7 +553,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       if (f.text === f.original) continue;
       const p = pages[f.page - 1];
       if (!p) continue;
-      const font = await getFont(f.fontFamily, f.bold, f.italic);
+      const font = await getFont(f.fontFamily, f.bold, f.italic, f.text);
       const c = hexToRgb(f.color);
       // Cover original glyph box (ascent + descent + side bleed)
       const newW = font.widthOfTextAtSize(f.text, f.fontSize);
@@ -570,7 +596,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           const bg = hexToRgb(cell.bg || "#ffffff");
           p.drawRectangle({ x: xLeft, y: yTop - rh, width: cw, height: rh, color: rgb(bg.r, bg.g, bg.b) });
           // text
-          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic);
+          const font = await getFont(cell.fontFamily || "Arial", !!cell.bold, !!cell.italic, cell.text || "");
           const size = cell.fontSize || 11;
           const tc = hexToRgb(cell.color || "#0b1320");
           const pad = cell.padding ?? 4;
