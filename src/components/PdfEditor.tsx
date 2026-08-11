@@ -171,6 +171,21 @@ function hexToRgb(hex: string) {
   return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
 }
 
+/** True when the string contains characters the WinAnsi standard fonts cannot encode (e.g. ₹). */
+function needsUnicodeFont(s: string) {
+  return /[^\u0000-\u00ff]/.test(s || "");
+}
+
+let notoBytesCache: { regular?: ArrayBuffer; bold?: ArrayBuffer } = {};
+async function loadNoto(bold: boolean): Promise<ArrayBuffer> {
+  const key = bold ? "bold" : "regular";
+  if (!notoBytesCache[key]) {
+    const res = await fetch(bold ? notoBoldUrl : notoRegularUrl);
+    notoBytesCache[key] = await res.arrayBuffer();
+  }
+  return notoBytesCache[key]!;
+}
+
 function pdfFontFor(family: string, bold: boolean, italic: boolean) {
   const f = family.toLowerCase();
   if (f.includes("times") || f.includes("georgia") || f.includes("playfair") || f.includes("serif")) {
