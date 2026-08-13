@@ -14,8 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
+          client_id: string | null
           created_at: string
           due_date: string | null
           folder: Database["public"]["Enums"]["folder_type"]
@@ -27,10 +55,12 @@ export type Database = {
           payment_status: string
           size_bytes: number | null
           storage_path: string
+          subfolder_id: string | null
           tables_json: Json
           updated_at: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           due_date?: string | null
           folder: Database["public"]["Enums"]["folder_type"]
@@ -42,10 +72,12 @@ export type Database = {
           payment_status?: string
           size_bytes?: number | null
           storage_path: string
+          subfolder_id?: string | null
           tables_json?: Json
           updated_at?: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           due_date?: string | null
           folder?: Database["public"]["Enums"]["folder_type"]
@@ -57,10 +89,26 @@ export type Database = {
           payment_status?: string
           size_bytes?: number | null
           storage_path?: string
+          subfolder_id?: string | null
           tables_json?: Json
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_subfolder_id_fkey"
+            columns: ["subfolder_id"]
+            isOneToOne: false
+            referencedRelation: "subfolders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_counter: {
         Row: {
@@ -120,6 +168,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subfolders: {
+        Row: {
+          created_at: string
+          folder: Database["public"]["Enums"]["folder_type"]
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          folder: Database["public"]["Enums"]["folder_type"]
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          folder?: Database["public"]["Enums"]["folder_type"]
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
