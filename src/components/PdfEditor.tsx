@@ -16,6 +16,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
 import { FolderSelect, encodeDest } from "@/components/FolderSelect";
+import { ClientPicker } from "@/components/ClientPicker";
+import type { Client } from "@/lib/clients";
 import { TableOverlayView, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
 
 // ---- invoice table config -------------------------------------------------
@@ -222,6 +224,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   const [name, setName] = useState(doc.name);
   const [folder, setFolder] = useState<Folder>(doc.folder);
   const [subfolderId, setSubfolderId] = useState<string | null>(doc.subfolder_id ?? null);
+  const [clientId, setClientId] = useState<string | null>(doc.client_id ?? null);
   const [zoom, setZoom] = useState(1); // 1 = 100%
   const [saving, setSaving] = useState(false);
 
@@ -699,6 +702,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
         subfolder_id: subfolderId,
+        client_id: clientId,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
         tables_json: tables as any,
@@ -751,6 +755,29 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     } finally { setSaving(false); }
   }
 
+  /** Auto-fill the document's TO: block (name, address, GSTIN) from a saved client. */
+  function applyClient(c: Client | null) {
+    setClientId(c?.id ?? null);
+    if (!c) return;
+    setFields((arr) => {
+      const next = [...arr];
+      const toIdx = next.findIndex((f) => /^\s*to\s*:?\s*$|^\s*to\s*:/i.test(f.original || f.text));
+      const setAt = (i: number, text: string) => { if (i >= 0 && i < next.length) next[i] = { ...next[i], text }; };
+      if (toIdx >= 0) {
+        setAt(toIdx, /^\s*to\s*:?\s*$/i.test(next[toIdx].original) ? "To:" : `To: ${c.name}`);
+        let cursor = toIdx + (/^\s*to\s*:?\s*$/i.test(next[toIdx].original) ? 1 : 1);
+        if (/^\s*to\s*:?\s*$/i.test(next[toIdx].original)) {
+          setAt(cursor, c.name); cursor++;
+        }
+        if (c.address) { setAt(cursor, c.address); cursor++; }
+      }
+      const gstIdx = next.findIndex((f) => /gstin/i.test(f.original));
+      if (gstIdx >= 0 && c.gstin) setAt(gstIdx, `GSTIN: ${c.gstin}`);
+      return next;
+    });
+    toast.success(`Client details filled from ${c.name}`);
+  }
+
   async function handleDelete() {
     if (doc.is_default) return toast.error("Default files can't be deleted");
     if (!confirm(`Delete "${doc.name}"?`)) return;
@@ -784,6 +811,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           value={encodeDest(folder, subfolderId)}
           onChange={(f, sub) => { setFolder(f); setSubfolderId(sub); }}
         />
+        {(folder === "invoice" || folder === "quotation") && (
+          <ClientPicker value={clientId} onSelect={applyClient} />
+        )}
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setInsertOpen((v) => !v)}>
             Insert ▾
