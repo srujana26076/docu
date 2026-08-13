@@ -17,6 +17,7 @@ import { Route as QuotationsRouteImport } from './routes/quotations'
 import { Route as OfferLettersRouteImport } from './routes/offer-letters'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InvoicesRouteImport } from './routes/invoices'
+import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as AccountingRouteImport } from './routes/accounting'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EditorIdRouteImport } from './routes/editor.$id'
@@ -61,6 +62,11 @@ const InvoicesRoute = InvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AccountingRoute = AccountingRouteImport.update({
   id: '/accounting',
   path: '/accounting',
@@ -80,6 +86,7 @@ const EditorIdRoute = EditorIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
+  '/clients': typeof ClientsRoute
   '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
+  '/clients': typeof ClientsRoute
   '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounting': typeof AccountingRoute
+  '/clients': typeof ClientsRoute
   '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
   '/offer-letters': typeof OfferLettersRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accounting'
+    | '/clients'
     | '/invoices'
     | '/login'
     | '/offer-letters'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accounting'
+    | '/clients'
     | '/invoices'
     | '/login'
     | '/offer-letters'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accounting'
+    | '/clients'
     | '/invoices'
     | '/login'
     | '/offer-letters'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountingRoute: typeof AccountingRoute
+  ClientsRoute: typeof ClientsRoute
   InvoicesRoute: typeof InvoicesRoute
   LoginRoute: typeof LoginRoute
   OfferLettersRoute: typeof OfferLettersRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/accounting': {
       id: '/accounting'
       path: '/accounting'
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountingRoute: AccountingRoute,
+  ClientsRoute: ClientsRoute,
   InvoicesRoute: InvoicesRoute,
   LoginRoute: LoginRoute,
   OfferLettersRoute: OfferLettersRoute,

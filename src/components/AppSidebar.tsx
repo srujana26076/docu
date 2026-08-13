@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { FileText, Home, FileSpreadsheet, Briefcase, Clock, LayoutTemplate, FilePlus2, BookOpen, LogOut } from "lucide-react";
+import { FileText, Home, FileSpreadsheet, Briefcase, Clock, LayoutTemplate, FilePlus2, BookOpen, LogOut, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const nav = [
   { to: "/offer-letters", label: "Offer Letters", icon: Briefcase },
   { to: "/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/recent", label: "Recent Documents", icon: Clock },
+  { to: "/clients", label: "Clients", icon: Users },
   { to: "/accounting", label: "Accounting", icon: BookOpen },
 ] as const;
 

@@ -61,7 +61,7 @@ function ClientsPage() {
   );
 }
 
-export const Route = createFileRoute("/clients")({
+export const Route = createFileRoute("/clients/")({
   head: () => ({ meta: [
     { title: "Clients · DocuEdit" },
     { name: "description", content: "Save client details once and reuse them across invoices and quotations." },
