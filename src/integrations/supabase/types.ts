@@ -16,27 +16,33 @@ export type Database = {
     Tables: {
       clients: {
         Row: {
+          address: string
           created_at: string
-          email: string | null
+          email: string
+          gstin: string | null
           id: string
           name: string
-          phone: string | null
+          phone: string
           updated_at: string
         }
         Insert: {
+          address?: string
           created_at?: string
-          email?: string | null
+          email?: string
+          gstin?: string | null
           id?: string
           name: string
-          phone?: string | null
+          phone?: string
           updated_at?: string
         }
         Update: {
+          address?: string
           created_at?: string
-          email?: string | null
+          email?: string
+          gstin?: string | null
           id?: string
           name?: string
-          phone?: string | null
+          phone?: string
           updated_at?: string
         }
         Relationships: []
