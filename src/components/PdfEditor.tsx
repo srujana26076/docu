@@ -16,6 +16,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
 import { FolderSelect, encodeDest } from "@/components/FolderSelect";
+import { ClientPicker } from "@/components/ClientPicker";
+import type { Client } from "@/lib/clients";
 import { TableOverlayView, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
 
 // ---- invoice table config -------------------------------------------------
@@ -222,6 +224,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   const [name, setName] = useState(doc.name);
   const [folder, setFolder] = useState<Folder>(doc.folder);
   const [subfolderId, setSubfolderId] = useState<string | null>(doc.subfolder_id ?? null);
+  const [clientId, setClientId] = useState<string | null>(doc.client_id ?? null);
   const [zoom, setZoom] = useState(1); // 1 = 100%
   const [saving, setSaving] = useState(false);
 
