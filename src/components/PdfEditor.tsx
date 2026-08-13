@@ -678,7 +678,6 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   }
 
   async function handleSave() {
-    void 0;
     setSaving(true);
     try {
       // Allocate a real invoice number on save (only for invoice folder, first save)
@@ -757,6 +756,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   }
 
   async function handleDelete() {
+    void 0;
     if (doc.is_default) return toast.error("Default files can't be deleted");
     if (!confirm(`Delete "${doc.name}"?`)) return;
     try {
