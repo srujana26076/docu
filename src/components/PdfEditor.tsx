@@ -15,6 +15,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadPdfBytes, type DocRow, type Folder, folderMeta, deleteDocument } from "@/lib/documents";
+import { FolderSelect, encodeDest } from "@/components/FolderSelect";
 import { TableOverlayView, makeTable, defaultCell, type TableData, type TableCell } from "./TableOverlay";
 
 // ---- invoice table config -------------------------------------------------
