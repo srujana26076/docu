@@ -678,6 +678,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
   }
 
   async function handleSave() {
+    void 0;
     setSaving(true);
     try {
       // Allocate a real invoice number on save (only for invoice folder, first save)
@@ -702,6 +703,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
         subfolder_id: subfolderId,
+        client_id: clientId,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
         tables_json: tables as any,
