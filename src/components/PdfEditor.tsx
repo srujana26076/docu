@@ -811,6 +811,9 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
           value={encodeDest(folder, subfolderId)}
           onChange={(f, sub) => { setFolder(f); setSubfolderId(sub); }}
         />
+        {(folder === "invoice" || folder === "quotation") && (
+          <ClientPicker value={clientId} onSelect={applyClient} />
+        )}
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setInsertOpen((v) => !v)}>
             Insert ▾
