@@ -220,6 +220,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
 
   const [name, setName] = useState(doc.name);
   const [folder, setFolder] = useState<Folder>(doc.folder);
+  const [subfolderId, setSubfolderId] = useState<string | null>(doc.subfolder_id ?? null);
   const [zoom, setZoom] = useState(1); // 1 = 100%
   const [saving, setSaving] = useState(false);
 
@@ -696,6 +697,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const { data: newDoc, error } = await supabase.from("documents").insert({
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
+        subfolder_id: subfolderId,
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
         tables_json: tables as any,
@@ -777,15 +779,10 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     <div className="h-screen flex flex-col bg-background">
       {/* Top action bar: filename, folder, save/download/delete */}
       <div className="border-b border-border bg-card px-4 py-2 flex items-center gap-2 flex-wrap">
-        <Select value={folder} onValueChange={(v) => setFolder(v as Folder)}>
-          <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="invoice">Invoices</SelectItem>
-            <SelectItem value="quotation">Quotations</SelectItem>
-            <SelectItem value="offer_letter">Offer Letters</SelectItem>
-            <SelectItem value="template">Templates</SelectItem>
-          </SelectContent>
-        </Select>
+        <FolderSelect
+          value={encodeDest(folder, subfolderId)}
+          onChange={(f, sub) => { setFolder(f); setSubfolderId(sub); }}
+        />
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setInsertOpen((v) => !v)}>
             Insert ▾
