@@ -23,11 +23,50 @@ export interface DocRow {
   tables_json?: any;
   payment_status?: "unpaid" | "paid" | "overdue" | null;
   due_date?: string | null;
+  subfolder_id?: string | null;
+  client_id?: string | null;
 }
 
-export async function listDocuments(folder?: Folder): Promise<DocRow[]> {
+export interface SubfolderRow {
+  id: string;
+  name: string;
+  folder: Folder;
+  created_at: string;
+}
+
+/** All sub-folders, optionally limited to one top-level folder. */
+export async function listSubfolders(folder?: Folder): Promise<SubfolderRow[]> {
+  let q = supabase.from("subfolders").select("*").order("name");
+  if (folder) q = q.eq("folder", folder);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as SubfolderRow[];
+}
+
+export async function createSubfolder(folder: Folder, name: string): Promise<SubfolderRow> {
+  const { data, error } = await supabase
+    .from("subfolders")
+    .insert({ folder, name: name.trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SubfolderRow;
+}
+
+export async function deleteSubfolder(id: string) {
+  const { error } = await supabase.from("subfolders").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Documents in a folder. `subfolderId` null => only top-level docs,
+ * a string => only that sub-folder, undefined => everything in the folder.
+ */
+export async function listDocuments(folder?: Folder, subfolderId?: string | null): Promise<DocRow[]> {
   let q = supabase.from("documents").select("*").order("created_at", { ascending: false });
   if (folder) q = q.eq("folder", folder);
+  if (subfolderId === null) q = q.is("subfolder_id", null);
+  else if (typeof subfolderId === "string") q = q.eq("subfolder_id", subfolderId);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as DocRow[];
