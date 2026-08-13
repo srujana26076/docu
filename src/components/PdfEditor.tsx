@@ -755,8 +755,30 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
     } finally { setSaving(false); }
   }
 
+  /** Auto-fill the document's TO: block (name, address, GSTIN) from a saved client. */
+  function applyClient(c: Client | null) {
+    setClientId(c?.id ?? null);
+    if (!c) return;
+    setFields((arr) => {
+      const next = [...arr];
+      const toIdx = next.findIndex((f) => /^\s*to\s*:?\s*$|^\s*to\s*:/i.test(f.original || f.text));
+      const setAt = (i: number, text: string) => { if (i >= 0 && i < next.length) next[i] = { ...next[i], text }; };
+      if (toIdx >= 0) {
+        setAt(toIdx, /^\s*to\s*:?\s*$/i.test(next[toIdx].original) ? "To:" : `To: ${c.name}`);
+        let cursor = toIdx + (/^\s*to\s*:?\s*$/i.test(next[toIdx].original) ? 1 : 1);
+        if (/^\s*to\s*:?\s*$/i.test(next[toIdx].original)) {
+          setAt(cursor, c.name); cursor++;
+        }
+        if (c.address) { setAt(cursor, c.address); cursor++; }
+      }
+      const gstIdx = next.findIndex((f) => /gstin/i.test(f.original));
+      if (gstIdx >= 0 && c.gstin) setAt(gstIdx, `GSTIN: ${c.gstin}`);
+      return next;
+    });
+    toast.success(`Client details filled from ${c.name}`);
+  }
+
   async function handleDelete() {
-    void 0;
     if (doc.is_default) return toast.error("Default files can't be deleted");
     if (!confirm(`Delete "${doc.name}"?`)) return;
     try {
