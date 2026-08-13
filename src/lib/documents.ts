@@ -103,7 +103,7 @@ export async function downloadPdfBytes(storagePath: string): Promise<ArrayBuffer
   return await data.arrayBuffer();
 }
 
-export async function uploadPdf(file: File | Blob, folder: Folder, name: string): Promise<DocRow> {
+export async function uploadPdf(file: File | Blob, folder: Folder, name: string, subfolderId: string | null = null): Promise<DocRow> {
   const safe = name.replace(/[^\w.\- ]+/g, "_").trim() || `untitled-${Date.now()}`;
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}.pdf`;
   const { error: upErr } = await supabase.storage
@@ -113,7 +113,7 @@ export async function uploadPdf(file: File | Blob, folder: Folder, name: string)
   const size = (file as File).size ?? null;
   const { data, error } = await supabase
     .from("documents")
-    .insert({ name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path, size_bytes: size, is_default: false })
+    .insert({ name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path, size_bytes: size, is_default: false, subfolder_id: subfolderId })
     .select()
     .single();
   if (error) throw error;

@@ -62,7 +62,7 @@ export function FolderView({ folder }: { folder: Folder }) {
   async function handleUpload(file: File) {
     setUploading(true);
     try {
-      const doc = await uploadPdf(file, folder, file.name);
+      const doc = await uploadPdf(file, folder, file.name, sub);
       toast.success(`Uploaded ${doc.name}`);
       qc.invalidateQueries({ queryKey: ["folder", folder] });
       qc.invalidateQueries({ queryKey: ["recent"] });
