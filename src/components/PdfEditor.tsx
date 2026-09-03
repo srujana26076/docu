@@ -698,7 +698,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
       const blob = new Blob([u8 as any], { type: "application/pdf" });
       const { error: upErr } = await supabase.storage.from("documents").upload(path, blob, { contentType: "application/pdf" });
       if (upErr) throw upErr;
-      const { data: newDoc, error } = await supabase.from("documents").insert({
+      const documentPayload = {
         name: safe.replace(/\.pdf$/i, ""), folder, storage_path: path,
         size_bytes: u8.byteLength, is_default: false,
         subfolder_id: subfolderId,
@@ -706,8 +706,40 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
         invoice_number: folder === "invoice" ? finalInvoice : null,
         invoice_date: folder === "invoice" ? invoiceDate : null,
         tables_json: tables as any,
-      }).select("id").single();
-      if (error) throw error;
+      };
+
+      // Uploading already created `doc`. Saving that document must replace its
+      // stored PDF and update the same row, otherwise upload + save produces
+      // two entries with the same name. Default templates remain immutable and
+      // intentionally create a new editable document on save.
+      let savedDocId: string;
+      if (doc.is_default) {
+        const { data: newDoc, error } = await supabase
+          .from("documents")
+          .insert(documentPayload)
+          .select("id")
+          .single();
+        if (error) {
+          await supabase.storage.from("documents").remove([path]);
+          throw error;
+        }
+        savedDocId = newDoc.id;
+      } else {
+        const { data: updatedDoc, error } = await supabase
+          .from("documents")
+          .update(documentPayload)
+          .eq("id", doc.id)
+          .select("id")
+          .single();
+        if (error) {
+          await supabase.storage.from("documents").remove([path]);
+          throw error;
+        }
+        savedDocId = updatedDoc.id;
+        if (doc.storage_path !== path) {
+          await supabase.storage.from("documents").remove([doc.storage_path]);
+        }
+      }
       // Auto-record accounting entries for invoices
       if (folder === "invoice") {
         try {
@@ -731,7 +763,7 @@ export function PdfEditor({ doc }: { doc: DocRow }) {
             amount = n.length ? Math.max(...n) : 0;
           }
           if (amount > 0) {
-            const docId = (newDoc as any)?.id ?? null;
+            const docId = savedDocId;
             const desc = `Invoice ${finalInvoice ?? safe}`;
             const entry_date = new Date().toISOString().slice(0, 10);
             // Avoid duplicates: clear any prior entries for this same invoice
